@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: {{.Name}}</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="{{.ID}}">
+      <h2><a href="./">C Code</a>: {{.Name}}</h2>
+	{{if .SummaryHTML}}
+      	<p class="summary">
+		{{.SummaryHTML}}
+      	</p>
+	{{end}}
+      {{range .Sections}}
+      <table>
+        {{range .}}
+        <tr>
+          <td class="code">
+            {{.CodeHTML}}
+          </td>
+          <td class="docs">
+            {{.DocsHTML}}
+          </td>
+        </tr>
+        {{end}}
+      </table>
+      {{end}}
+      {{if .Next}}
+      <p class="next">
+        Next: <a href="{{.Next.ID}}.html">{{.Next.Name}}</a>.
+      </p>
+      {{end}}
+      {{if .Prev}}
+      <p class="prev">
+        Prev: <a href="{{.Prev.ID}}.html">{{.Prev.Name}}</a>.
+      </p>
+      {{end}}
+      <p class="footer">
+	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>
