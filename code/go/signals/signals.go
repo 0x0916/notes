@@ -21,7 +21,7 @@ func main() {
 	// 这个Go协程执行一个阻塞的信号接收操作。当它得到一个值时，
 	// 它将打印这个值，然后通知程序可以退出。
 	go func() {
-		sig := <-sigs // block until a signal is received.
+		sig := <-sigs
 		fmt.Println()
 		fmt.Println(sig)
 		done <- true

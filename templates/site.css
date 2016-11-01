@@ -12,34 +12,34 @@ article, aside, canvas, details, embed,
 figure, figcaption, footer, header, hgroup,
 menu, nav, output, ruby, section, summary,
 time, mark, audio, video {
-	margin: 0;
-	padding: 0;
-	border: 0;
-	font-size: 100%;
-	font: inherit;
-	vertical-align: baseline;
+margin: 0;
+padding: 0;
+border: 0;
+font-size: 100%;
+font: inherit;
+vertical-align: baseline;
 }
 article, aside, details, figcaption, figure,
 footer, header, hgroup, menu, nav, section {
-	display: block;
+display: block;
 }
 body {
-	line-height: 1;
+line-height: 1;
 }
 ol, ul {
-	list-style: none;
+list-style: none;
 }
 blockquote, q {
-	quotes: none;
+quotes: none;
 }
 blockquote:before, blockquote:after,
 q:before, q:after {
-	content: '';
-	content: none;
+content: '';
+content: none;
 }
 table {
-	border-collapse: collapse;
-	border-spacing: 0;
+border-collapse: collapse;
+border-spacing: 0;
 }
 
 /* Layout and typography */
@@ -59,9 +59,13 @@ h2 {
     font-size: 32px;
     line-height: 40px;
     margin-top: 40px;
+    font-family: sans-serif;
 }
 h2 a {
     text-decoration: none;
+}
+.summary {
+line-height: 1.8em;
 }
 div.example {
     width: 900px;
@@ -75,8 +79,17 @@ div.example table {
     margin-top: 15px;
     margin-bottom: 20px;
 }
-p.next {
+.pager {
+display: flex;
+}
+p.next, p.prev {
     margin-bottom: 20px;
+    font-family: sans-serif;
+    display: inline-block;
+    flex: 1;
+}
+p.next {
+text-align: right;
 }
 p.footer {
     color: grey;
@@ -106,25 +119,44 @@ td.docs {
     width: 420px;
     max-width: 420px;
     min-width: 420px;
+    line-height: 1.5em;
     min-height: 5px;
     vertical-align: top;
     text-align: left;
+    padding-left: 24px;
+    position: relative;
+    color: #000;
+}
+td.docs:before {
+content: '->';
+position: absolute;
+left: -7px;
+top: 4px;
+color: #666;
+display: inline-block;
+padding: 0 10px;
 }
 td.docs p {
     padding-right: 5px;
     padding-top: 5px;
     padding-bottom: 15px;
 }
+
 td.code {
     width: 480px;
     max-width: 480px;
     min-width: 480px;
     padding-top: 5px;
-    padding-right: 5px;
-    padding-left: 5px;
+    padding-right: 0;
+    padding-left: 0;
     padding-bottom: 5px;
     vertical-align: top;
     background: #f0f0f0;
+    border-top: 0 solid #fff;
+    overflow: auto;
+}
+td.code .highlight {
+padding: 0 10px;
 }
 td.code.leading {
     padding-bottom: 11px;
@@ -133,10 +165,19 @@ td.code.empty {
     background: #ffffff;
 }
 pre, code {
-    font-size: 14px; line-height: 18px;
+    font-size: 14px; 
+    line-height: 18px;
     font-family: 'Menlo', 'Monaco', 'Consolas', 'Lucida Console', monospace;
 }
-
+p code {
+border: 1px solid #ededed;
+display: inline-block;
+padding: 0 8px;
+background: #f4f4f4;
+border-radius: 5px;
+box-shadow: 1px 1px 1px #f7f7f7;
+color: brown;
+}
 /* Syntax highlighting */
 body .hll { background-color: #ffffcc }
 body .err { border: 1px solid #FF0000 }         /* Error */

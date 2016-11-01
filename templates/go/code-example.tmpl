@@ -9,9 +9,9 @@
     <div class="example" id="{{.ID}}">
       <h2><a href="./">Go Code</a>: {{.Name}}</h2>
         {{if .SummaryHTML}}
-        <p class="summary">
+        <div class="summary">
                 {{.SummaryHTML}}
-        </p>
+        </div>
         {{end}}
       {{range .Sections}}
       <table>
@@ -20,13 +20,14 @@
           <td class="code">
             {{.CodeHTML}}
           </td>
-          <td class="docs">
+          <td class="{{if .DocsHTML}}docs{{end}}">
             {{.DocsHTML}}
           </td>
         </tr>
         {{end}}
       </table>
       {{end}}
+	<div class="pager">
       {{if .Next}}
       <p class="next">
         Next: <a href="{{.Next.ID}}.html">{{.Next.Name}}</a>.
@@ -37,6 +38,7 @@
         Prev: <a href="{{.Prev.ID}}.html">{{.Prev.Name}}</a>.
       </p>
       {{end}}
+	</div>
       <p class="footer">
 	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
       </p>
