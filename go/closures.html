@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Go Code: 闭包</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="closures">
+      <h2><a href="./">Go Code</a>: 闭包</h2>
+        
+        <div class="summary">
+                <p>Go支持通过闭包来使用匿名函数。匿名函数在你想定义一个不需要命令的内联函数时是很使用的。</p>
+
+        </div>
+        
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="s">&quot;fmt&quot;</span></pre></div>
+          </td>
+          <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kd">func</span> <span class="nx">intSeq</span><span class="p">()</span> <span class="kd">func</span><span class="p">()</span> <span class="kt">int</span> <span class="p">{</span>
+	<span class="nx">i</span> <span class="o">:=</span> <span class="mi">0</span>
+	<span class="k">return</span> <span class="kd">func</span><span class="p">()</span> <span class="kt">int</span> <span class="p">{</span>
+		<span class="nx">i</span> <span class="o">+=</span> <span class="mi">1</span>
+		<span class="k">return</span> <span class="nx">i</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span></pre></div>
+          </td>
+          <td class="docs">
+            <p>这个<code>intSeq</code>函数的返回值是一个<code>func() int</code>类型的函数
+返回的函数定义在<code>intSeq</code>函数体内的匿名函数。这个返回的函数
+使用闭包的方式隐藏变量<code>i</code></p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="nx">nextInt</span> <span class="o">:=</span> <span class="nx">intSeq</span><span class="p">()</span></pre></div>
+          </td>
+          <td class="docs">
+            <p>调用<code>intSeq</code>函数，将返回值（也是一个函数）赋值给<code>nextInt</code>。
+这个函数的值包含了自己的值<code>i</code>，这样每次调用<code>nextInt</code>时都会更新<code>i</code>的值。</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">nextInt</span><span class="p">())</span>
+	<span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">nextInt</span><span class="p">())</span>
+	<span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">nextInt</span><span class="p">())</span>
+	<span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">nextInt</span><span class="p">())</span></pre></div>
+          </td>
+          <td class="docs">
+            <p>通过多次调用<code>nextInt</code>来看看闭包的效果</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="nx">newNextInt</span> <span class="o">:=</span> <span class="nx">intSeq</span><span class="p">()</span>
+	<span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">newNextInt</span><span class="p">())</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+          <td class="docs">
+            <p>为了确定这个状态对于这个特定的函数是唯一的，我们重新创建并测试一下。</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ go run closures.go 
+1
+2
+3
+4
+1
+
+</pre></div>
+          </td>
+          <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="variadic-function.html">变参函数</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="pointers.html">指针</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

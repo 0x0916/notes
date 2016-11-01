@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Go Code: Expvar</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="expvar">
+      <h2><a href="./">Go Code</a>: Expvar</h2>
+        
+        <div class="summary">
+                <p>Go语言提供的包<code>expvar</code>提供了一个标准的接口用来导出变量，它将这些变量通过HTTP以JSON的格式导出。</p>
+
+<p>设置和修改这些导出变量的操作都是原子的。</p>
+
+<p>该包默认注册如下两个变量：</p>
+
+<ul>
+<li>cmdline   os.Args</li>
+<li>memstats  runtime.Memstats</li>
+</ul>
+
+        </div>
+        
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+	<span class="s">&quot;expvar&quot;</span>
+	<span class="s">&quot;fmt&quot;</span>
+	<span class="s">&quot;net/http&quot;</span>
+<span class="p">)</span></pre></div>
+          </td>
+          <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kd">var</span> <span class="nx">numCalls</span> <span class="p">=</span> <span class="nx">expvar</span><span class="p">.</span><span class="nx">NewInt</span><span class="p">(</span><span class="s">&quot;num_calls&quot;</span><span class="p">)</span>
+<span class="kd">var</span> <span class="nx">lastUser</span> <span class="p">=</span> <span class="nx">expvar</span><span class="p">.</span><span class="nx">NewString</span><span class="p">(</span><span class="s">&quot;last_user&quot;</span><span class="p">)</span>
+
+<span class="kd">func</span> <span class="nx">HelloServer</span><span class="p">(</span><span class="nx">w</span> <span class="nx">http</span><span class="p">.</span><span class="nx">ResponseWriter</span><span class="p">,</span> <span class="nx">req</span> <span class="o">*</span><span class="nx">http</span><span class="p">.</span><span class="nx">Request</span><span class="p">)</span> <span class="p">{</span>
+	<span class="nx">user</span> <span class="o">:=</span> <span class="nx">req</span><span class="p">.</span><span class="nx">FormValue</span><span class="p">(</span><span class="s">&quot;user&quot;</span><span class="p">)</span></pre></div>
+          </td>
+          <td class="docs">
+            <p>定义两个指标，<code>numCalls</code> 统计访问我们服务器数量，
+<code>lastUser</code>记录最后一个访问用户的名称</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="nx">numCalls</span><span class="p">.</span><span class="nx">Add</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+	<span class="nx">lastUser</span><span class="p">.</span><span class="nx">Set</span><span class="p">(</span><span class="nx">user</span><span class="p">)</span>
+
+	<span class="nx">msg</span> <span class="o">:=</span> <span class="nx">fmt</span><span class="p">.</span><span class="nx">Sprintf</span><span class="p">(</span><span class="s">&quot;G&#39;day %s\n&quot;</span><span class="p">,</span> <span class="nx">user</span><span class="p">)</span>
+	<span class="nx">w</span><span class="p">.</span><span class="nx">Write</span><span class="p">([]</span><span class="nb">byte</span><span class="p">(</span><span class="nx">msg</span><span class="p">))</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span>
+	<span class="nx">http</span><span class="p">.</span><span class="nx">HandleFunc</span><span class="p">(</span><span class="s">&quot;/&quot;</span><span class="p">,</span> <span class="nx">HelloServer</span><span class="p">)</span>
+	<span class="nx">http</span><span class="p">.</span><span class="nx">ListenAndServe</span><span class="p">(</span><span class="s">&quot;:4545&quot;</span><span class="p">,</span> <span class="kc">nil</span><span class="p">)</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+          <td class="docs">
+            <p>更新指标</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ curl http://localhost:4545?user<span class="o">=</span>tom
+G<span class="s1">&#39;day tom</span>
+<span class="s1">$ curl http://localhost:4545?user=tom</span>
+<span class="s1">G&#39;</span>day tom
+$ curl http://localhost:4545?user<span class="o">=</span>tom
+G<span class="s1">&#39;day tom</span>
+<span class="s1">$ curl http://localhost:4545?user=tom</span>
+<span class="s1">G&#39;</span>day tom
+$ curl http://localhost:4545?user<span class="o">=</span>tom
+G<span class="s1">&#39;day tom</span>
+<span class="s1">$ curl http://localhost:4545?user=tom</span>
+<span class="s1">G&#39;</span>day tom
+$ curl http://localhost:4545?user<span class="o">=</span>tom
+G<span class="s1">&#39;day tom</span>
+<span class="s1">$ curl http://localhost:4545?user=tom</span>
+<span class="s1">G&#39;</span>day tom</pre></div>
+          </td>
+          <td class="docs">
+            <p>访问 <code>http://localhost:4545?user=tom</code> 8次</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ curl http://localhost:4545/debug/vars <span class="p">|</span> jq .
+<span class="o">{</span></pre></div>
+          </td>
+          <td class="docs">
+            <p>查看指标</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>  <span class="s2">&quot;num_calls&quot;</span>: 8,
+  <span class="s2">&quot;memstats&quot;</span>: <span class="o">{</span>
+    <span class="s2">&quot;BySize&quot;</span>: <span class="o">[</span>
+      <span class="o">{</span>
+        <span class="s2">&quot;Frees&quot;</span>: 0,
+        <span class="s2">&quot;Mallocs&quot;</span>: 0,
+        <span class="s2">&quot;Size&quot;</span>: 0
+      <span class="o">}</span>,</pre></div>
+          </td>
+          <td class="docs">
+            <p>可以看到，访问了8次</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>      ****
+      <span class="o">{</span>
+        <span class="s2">&quot;Frees&quot;</span>: 0,
+        <span class="s2">&quot;Mallocs&quot;</span>: 0,
+        <span class="s2">&quot;Size&quot;</span>: 17664
+      <span class="o">}</span>
+    <span class="o">]</span>,
+    <span class="s2">&quot;DebugGC&quot;</span>: false,
+    <span class="s2">&quot;EnableGC&quot;</span>: true,
+    <span class="s2">&quot;GCCPUFraction&quot;</span>: 0,
+    <span class="s2">&quot;NumGC&quot;</span>: 0,
+    <span class="s2">&quot;PauseEnd&quot;</span>: <span class="o">[</span>
+      0,
+      0,
+      0
+    <span class="o">]</span>,
+    <span class="s2">&quot;PauseNs&quot;</span>: <span class="o">[</span>
+      0,
+      0,
+      0
+    <span class="o">]</span>,
+    <span class="s2">&quot;PauseTotalNs&quot;</span>: 0,
+    <span class="s2">&quot;LastGC&quot;</span>: 0,
+    <span class="s2">&quot;NextGC&quot;</span>: 4194304,
+    <span class="s2">&quot;OtherSys&quot;</span>: 558769,
+    <span class="s2">&quot;GCSys&quot;</span>: 98304,
+    <span class="s2">&quot;BuckHashSys&quot;</span>: 2383,
+    <span class="s2">&quot;MCacheSys&quot;</span>: 16384,
+    <span class="s2">&quot;MCacheInuse&quot;</span>: 9600,
+    <span class="s2">&quot;HeapSys&quot;</span>: 753664,
+    <span class="s2">&quot;HeapAlloc&quot;</span>: 370784,
+    <span class="s2">&quot;Frees&quot;</span>: 120,
+    <span class="s2">&quot;Mallocs&quot;</span>: 5020,
+    <span class="s2">&quot;Lookups&quot;</span>: 25,
+    <span class="s2">&quot;Sys&quot;</span>: 1740800,
+    <span class="s2">&quot;TotalAlloc&quot;</span>: 370784,
+    <span class="s2">&quot;Alloc&quot;</span>: 370784,
+    <span class="s2">&quot;HeapIdle&quot;</span>: 32768,
+    <span class="s2">&quot;HeapInuse&quot;</span>: 720896,
+    <span class="s2">&quot;HeapReleased&quot;</span>: 0,
+    <span class="s2">&quot;HeapObjects&quot;</span>: 4900,
+    <span class="s2">&quot;StackInuse&quot;</span>: 294912,
+    <span class="s2">&quot;StackSys&quot;</span>: 294912,
+    <span class="s2">&quot;MSpanInuse&quot;</span>: 13440,
+    <span class="s2">&quot;MSpanSys&quot;</span>: 16384
+  <span class="o">}</span>,</pre></div>
+          </td>
+          <td class="docs">
+            <p>省略&hellip;.</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>  <span class="s2">&quot;last_user&quot;</span>: <span class="s2">&quot;tom&quot;</span>,
+  <span class="s2">&quot;cmdline&quot;</span>: <span class="o">[</span>
+    <span class="s2">&quot;./expvar&quot;</span>
+  <span class="o">]</span>
+<span class="o">}</span>
+
+</pre></div>
+          </td>
+          <td class="docs">
+            <p>最后一个访问的用户</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="pointers.html">指针</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="pprof.html">Pprof</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

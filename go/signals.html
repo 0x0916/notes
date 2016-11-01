@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Go Code: 信号</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="signals">
+      <h2><a href="./">Go Code</a>: 信号</h2>
+        
+        <div class="summary">
+                <p>有时，我们会希望Go程序处理一些<a href="https://en.wikipedia.org/wiki/Unix_signal">Unix信号</a>，例如，当一个服务器程序收到信号<code>SIGTERM</code>后，做一些清理工作，然后再关闭。通过下面的例子，我们来学习在Go中如何处理信号。</p>
+
+<p>一般情况下，信号<code>SIGKILL</code> 和 <code>SIGSTOP</code> 不能被程序捕获，所以Go的信号处理相关函数也不会影响这两个信号。</p>
+
+        </div>
+        
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kn">package</span> <span class="nx">main</span>
+
+<span class="kn">import</span> <span class="p">(</span>
+	<span class="s">&quot;fmt&quot;</span>
+	<span class="s">&quot;os&quot;</span>
+	<span class="s">&quot;os/signal&quot;</span>
+	<span class="s">&quot;syscall&quot;</span>
+<span class="p">)</span>
+
+<span class="kd">func</span> <span class="nx">main</span><span class="p">()</span> <span class="p">{</span></pre></div>
+          </td>
+          <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="nx">sigs</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">(</span><span class="kd">chan</span> <span class="nx">os</span><span class="p">.</span><span class="nx">Signal</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></pre></div>
+          </td>
+          <td class="docs">
+            <p>Go 通过向一个<code>Channel</code>发送<code>os.Signal</code>值来进行信号的通知。
+我们创建一个<code>Channel</code>来接收这些信号。</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="nx">done</span> <span class="o">:=</span> <span class="nb">make</span><span class="p">(</span><span class="kd">chan</span> <span class="kt">bool</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span></pre></div>
+          </td>
+          <td class="docs">
+            <p>创建一个用于程序结束时进行通知的Channel</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="nx">signal</span><span class="p">.</span><span class="nx">Notify</span><span class="p">(</span><span class="nx">sigs</span><span class="p">,</span> <span class="nx">syscall</span><span class="p">.</span><span class="nx">SIGINT</span><span class="p">,</span> <span class="nx">syscall</span><span class="p">.</span><span class="nx">SIGTERM</span><span class="p">)</span></pre></div>
+          </td>
+          <td class="docs">
+            <p><code>singal.Notify</code> 注册给定的<code>Channel</code>，用于接收特定的信号</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">go</span> <span class="kd">func</span><span class="p">()</span> <span class="p">{</span>
+		<span class="nx">sig</span> <span class="o">:=</span> <span class="o">&lt;-</span><span class="nx">sigs</span>
+		<span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">()</span>
+		<span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="nx">sig</span><span class="p">)</span>
+		<span class="nx">done</span> <span class="o">&lt;-</span> <span class="kc">true</span>
+	<span class="p">}()</span></pre></div>
+          </td>
+          <td class="docs">
+            <p>这个Go协程执行一个阻塞的信号接收操作。当它得到一个值时，
+它将打印这个值，然后通知程序可以退出。</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;awaiting signal&quot;</span><span class="p">)</span>
+	<span class="o">&lt;-</span><span class="nx">done</span>
+	<span class="nx">fmt</span><span class="p">.</span><span class="nx">Println</span><span class="p">(</span><span class="s">&quot;exiting&quot;</span><span class="p">)</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+          <td class="docs">
+            <p>程序将在这里进行等待，知道它达到了期望的信号（也就是上面的Go协程发送的<code>done</code>值），然后退出。</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ go run signals.go 
+awaiting signal
+^C
+interrupt
+exiting
+
+</pre></div>
+          </td>
+          <td class="docs">
+            <p>当我们运行这个程序时，它将一直等待一个信号。使用
+ctrl-C(终端显示为<code>^C</code>)，我们可以发送一个<code>SIGINT</code>信号，
+这会使程序打印 <code>interrupt</code>然后退出。</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      
+      <p class="next">
+        Next: <a href="multiple-return-values.html">多返回值</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>
