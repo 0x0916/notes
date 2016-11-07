@@ -204,7 +204,17 @@ func ParseCodeExamples(index, lang string) []*CodeExample {
 	examples := make([]*CodeExample, 0)
 	for _, exampleName := range exampleNames {
 		if (exampleName != "") && !strings.HasPrefix(exampleName, "#") {
-			example := CodeExample{Name: exampleName}
+			exampleNameZh := exampleName
+			if strings.Index(exampleName, "->") != -1 {
+				names := strings.Split(exampleName, "->")
+				exampleName = names[0]
+				if strings.Trim(names[1], " ") != "" {
+					exampleNameZh = names[1]
+				} else {
+					exampleNameZh = names[0]
+				}
+			}
+			example := CodeExample{Name: exampleNameZh}
 			exampleID := strings.ToLower(exampleName)
 			exampleID = strings.Replace(exampleID, " ", "-", -1)
 			exampleID = strings.Replace(exampleID, "/", "-", -1)
