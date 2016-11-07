@@ -1,1 +1,2 @@
 Hello World
+isatty->判断一个文件描述符引用的是否是一个终端
