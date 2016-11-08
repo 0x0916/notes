@@ -68,9 +68,9 @@ h2 a {
 line-height: 1.8em;
 }
 div.example {
-    width: 900px;
-    min-width: 900px;
-    max-width: 900px;
+    width: 1200px;
+    min-width: 1200px;
+    max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
     margin-bottom: 120px;
@@ -143,9 +143,9 @@ td.docs p {
 }
 
 td.code {
-    width: 480px;
-    max-width: 480px;
-    min-width: 480px;
+    width: 800px;
+    max-width: 800px;
+    min-width: 800px;
     padding-top: 5px;
     padding-right: 0;
     padding-left: 0;
@@ -168,6 +168,14 @@ pre, code {
     font-size: 14px; 
     line-height: 18px;
     font-family: 'Menlo', 'Monaco', 'Consolas', 'Lucida Console', monospace;
+}
+pre>code {
+   display: block;
+   padding: 10px;
+   margin: 10px 0;
+   color: #666;
+   background: #f4f4f4;
+   border-radius: 5px;
 }
 p code {
 border: 1px solid #ededed;
