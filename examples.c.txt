@@ -3,3 +3,4 @@ isatty->判断一个文件描述符引用的是否是一个终端
 Passing File Descriptors->传递文件描述符
 Sshpass->sshpass工具注解
 pty->伪终端
+forkptytest->伪终端示例程序forkpty
