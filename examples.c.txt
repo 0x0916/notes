@@ -4,3 +4,4 @@ Passing File Descriptors->传递文件描述符
 Sshpass->sshpass工具注解
 pty->伪终端
 forkptytest->伪终端示例程序forkpty
+ptytest->伪终端示例程序ptytest
