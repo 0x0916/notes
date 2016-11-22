@@ -5,3 +5,4 @@ Sshpass->sshpass工具注解
 pty->伪终端
 forkptytest->伪终端示例程序forkpty
 ptytest->伪终端示例程序ptytest
+Test Container Reboot->判断内核支持容器重启
