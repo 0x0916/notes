@@ -26,5 +26,6 @@ struct sockaddr_un {
 若使用netstat查询端口情况，通过`Abstract Unix Socket`的方式创建的`unix域socket`在`bind`之后，路径前有一个`@`:
 
 ```
-unix  3      [ ]         STREAM     CONNECTED     3969960  @/com/ubuntu/upstart
+unix  2      [ ACC ]     STREAM     LISTENING     4354773  @./sample-socket
+
 ```

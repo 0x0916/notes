@@ -2,6 +2,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <stddef.h>
 
 #include "sockutil.h"
 
@@ -9,17 +10,20 @@ int main(int argc, char **argv) {
 	struct sockaddr_un	address;
 	int sock, conn;
 	socklen_t addr_len;
+	char *path = "./sample-socket";
 
 	if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
 		die("socket");
 
-	unlink("./sample-socket");
+	// 将address结构体清0
+	memset(&address, 0, sizeof(address));
 
 	address.sun_family = AF_UNIX;
-	strcpy(address.sun_path, "./sample-socket");
+	// `address.sun_path[0]` 已经被`memset`设置为0
+	strncpy(&address.sun_path[1], path, strlen(path));
 
-	addr_len = sizeof(address.sun_family) +
-			sizeof(address.sun_path);
+	// 注意长度恶计算
+	addr_len = offsetof(struct sockaddr_un, sun_path) + strlen(path) + 1;
 
 	if (bind(sock, (struct sockaddr *) &address, addr_len))
 		die("bind");
