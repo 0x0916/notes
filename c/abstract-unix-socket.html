@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: Unix域抽象套接字</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="abstract-unix-socket">
+      <h2><a href="./">C Code</a>: Unix域抽象套接字</h2>
+	
+      	<div class="summary">
+		<p><code>unix域socket</code>在<code>*nix</code>下是一种很受欢迎的<code>IPC</code>，不过有个小问题，它bind之后，会在文件系统中留下一个文件，然后再close之后文件却不会自动消失，这就导致下一次<code>bind</code>会失败，所以<code>unix域socket</code>的<code>bind</code>通常有个<code>ulink</code>凑热闹。</p>
+
+<p>另一个问题是，这个文件很容易被其他程序不经意中删除，这导致很奇怪的问题，而很难发现。</p>
+
+<p>下面要说的是如何在unix域socket中不使用文件系统路径，但保持接口的一致性（<strong>这种方法目前不具备特别好的移植性</strong>）。</p>
+
+<p>简单地说，就是Linux在内存中维护了一个虚拟的&rdquo;文件系统&rdquo;，这个文件在close之后会自动消失，并且文件系统中看不到bind的文件，用<code>netstat -an</code>却有记录。</p>
+
+<p><code>Unix域socket</code>的地址结构如下：</p>
+
+<pre><code>#define UNIX_PATH_MAX    108
+
+struct sockaddr_un {
+    sa_family_t sun_family;               /* AF_UNIX */
+    char        sun_path[UNIX_PATH_MAX];  /* pathname */
+};
+
+</code></pre>
+
+<p><code>Abstract Unix Socket</code>和普通的<code>unix域socket</code>大部分地方一致，除了地址的设置。正常情况下，<code>sun_path</code>指定了需要<code>bind</code>（或者<code>send/connect</code>等）的路径，
+若使用<code>Abstract Unix Socket</code>，那么<code>sun_path[0]</code>必须为<code>'\0'</code>(零字符)。同时在使用这个地址时，必须在<code>addresslen</code>参数中指定正确的长度，
+这个长度是<code>sizeof(sun_family) + 1 + strlen(path)</code>。其中<code>path</code>不包含后面的<code>'\0'</code>，Linux也不会去寻找这个零字符。</p>
+
+<p>当接收（<code>accept</code>，<code>recvfrom</code>等）数据时，Linux也不会在<code>sun_path</code>后面附上一个<code>'\0'</code>，所以你必须根据返回的长度谨慎地处理字符串。</p>
+
+<p>若使用netstat查询端口情况，通过<code>Abstract Unix Socket</code>的方式创建的<code>unix域socket</code>在<code>bind</code>之后，路径前有一个<code>@</code>:</p>
+
+<pre><code>unix  2      [ ACC ]     STREAM     LISTENING     4354773  @./sample-socket
+
+</code></pre>
+
+      	</div>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+
+<span class="cp">#include</span> <span class="cpf">&quot;sockutil.h&quot;</span><span class="cp"></span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kt">void</span> <span class="nf">die</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">msg</span><span class="p">){</span>
+	<span class="n">perror</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span>
+	<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>打印错误，并结束程序的执行</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kt">void</span> <span class="nf">copy_data</span><span class="p">(</span><span class="kt">int</span> <span class="n">from</span><span class="p">,</span> <span class="kt">int</span> <span class="n">to</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="mi">1024</span><span class="p">];</span>
+	<span class="kt">int</span> <span class="n">amount</span><span class="p">;</span>
+
+	<span class="k">while</span> <span class="p">((</span><span class="n">amount</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">from</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">buf</span><span class="p">)))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">write</span><span class="p">(</span><span class="n">to</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">amount</span><span class="p">)</span><span class="o">!=</span> <span class="n">amount</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">die</span><span class="p">(</span><span class="s">&quot;write&quot;</span><span class="p">);</span>
+			<span class="k">return</span><span class="p">;</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">amount</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;read&quot;</span><span class="p">);</span>
+
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>从文件描述符<code>from</code>拷贝数据到文件描述符<code>to</code>，直到没有数据为止。
+如果出现错误，则退出</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#ifndef SOCK_UNIX_H</span>
+<span class="cp">#define SOCK_UNIX_H</span>
+<span class="kt">void</span> <span class="nf">die</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">msg</span><span class="p">);</span>
+<span class="kt">void</span> <span class="nf">copy_data</span><span class="p">(</span><span class="kt">int</span> <span class="n">from</span><span class="p">,</span> <span class="kt">int</span> <span class="n">to</span><span class="p">);</span>
+<span class="cp">#endif  </span><span class="cm">/*SOCK_UNIX_H*/</span><span class="cp"></span>
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;sys/socket.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/un.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stddef.h&gt;</span><span class="cp"></span>
+
+<span class="cp">#include</span> <span class="cpf">&quot;sockutil.h&quot;</span><span class="cp"></span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">struct</span> <span class="n">sockaddr_un</span>	<span class="n">address</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">sock</span><span class="p">;</span>
+	<span class="kt">socklen_t</span> <span class="n">addr_len</span><span class="p">;</span>
+	<span class="kt">char</span> <span class="o">*</span><span class="n">path</span> <span class="o">=</span> <span class="s">&quot;./sample-socket&quot;</span><span class="p">;</span>
+
+	<span class="k">if</span> <span class="p">((</span><span class="n">sock</span> <span class="o">=</span> <span class="n">socket</span><span class="p">(</span><span class="n">AF_UNIX</span><span class="p">,</span> <span class="n">SOCK_STREAM</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;socket&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">address</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">address</span><span class="p">));</span>
+
+	<span class="n">address</span><span class="p">.</span><span class="n">sun_family</span> <span class="o">=</span> <span class="n">AF_UNIX</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>将address结构体清0</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">strncpy</span><span class="p">(</span><span class="o">&amp;</span><span class="n">address</span><span class="p">.</span><span class="n">sun_path</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">path</span><span class="p">,</span> <span class="n">strlen</span><span class="p">(</span><span class="n">path</span><span class="p">));</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p><code>address.sun_path[0]</code> 已经被<code>memset</code>设置为0</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">addr_len</span> <span class="o">=</span> <span class="n">offsetof</span><span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr_un</span><span class="p">,</span> <span class="n">sun_path</span><span class="p">)</span> <span class="o">+</span> <span class="n">strlen</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">connect</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">address</span><span class="p">,</span> <span class="n">addr_len</span><span class="p">))</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;connect&quot;</span><span class="p">);</span>
+
+	<span class="n">copy_data</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sock</span><span class="p">);</span>
+
+	<span class="n">close</span><span class="p">(</span><span class="n">sock</span><span class="p">);</span>
+	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>注意长度的计算</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/socket.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/un.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stddef.h&gt;</span><span class="cp"></span>
+
+<span class="cp">#include</span> <span class="cpf">&quot;sockutil.h&quot;</span><span class="cp"></span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">struct</span> <span class="n">sockaddr_un</span>	<span class="n">address</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">sock</span><span class="p">,</span> <span class="n">conn</span><span class="p">;</span>
+	<span class="kt">socklen_t</span> <span class="n">addr_len</span><span class="p">;</span>
+	<span class="kt">char</span> <span class="o">*</span><span class="n">path</span> <span class="o">=</span> <span class="s">&quot;./sample-socket&quot;</span><span class="p">;</span>
+
+	<span class="k">if</span> <span class="p">((</span><span class="n">sock</span> <span class="o">=</span> <span class="n">socket</span><span class="p">(</span><span class="n">AF_UNIX</span><span class="p">,</span> <span class="n">SOCK_STREAM</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;socket&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">address</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">address</span><span class="p">));</span>
+
+	<span class="n">address</span><span class="p">.</span><span class="n">sun_family</span> <span class="o">=</span> <span class="n">AF_UNIX</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>将address结构体清0</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">strncpy</span><span class="p">(</span><span class="o">&amp;</span><span class="n">address</span><span class="p">.</span><span class="n">sun_path</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">path</span><span class="p">,</span> <span class="n">strlen</span><span class="p">(</span><span class="n">path</span><span class="p">));</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p><code>address.sun_path[0]</code> 已经被<code>memset</code>设置为0</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">addr_len</span> <span class="o">=</span> <span class="n">offsetof</span><span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr_un</span><span class="p">,</span> <span class="n">sun_path</span><span class="p">)</span> <span class="o">+</span> <span class="n">strlen</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">bind</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">address</span><span class="p">,</span> <span class="n">addr_len</span><span class="p">))</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;bind&quot;</span><span class="p">);</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">listen</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;listen&quot;</span><span class="p">);</span>
+
+	<span class="k">while</span> <span class="p">((</span><span class="n">conn</span> <span class="o">=</span> <span class="n">accept</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">address</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">addr_len</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;----------getting data</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="n">copy_data</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;----------done</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="n">close</span><span class="p">(</span><span class="n">conn</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">conn</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;accept&quot;</span><span class="p">);</span>
+
+	<span class="n">close</span><span class="p">(</span><span class="n">sock</span><span class="p">);</span>
+	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>注意长度恶计算</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -c -o sockutil.o sockutil.c 
+$ gcc -c -o userver.o userver.c 
+$ gcc -c -o uclient.o uclient.c 
+$ gcc -o userver userver.o sockutil.o
+$ gcc -o uclient uclient.o sockutil.o
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>编译程序</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="unix-socket.html">Unix域套接字</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="setjmp-and-longjmp.html">函数间跳转setjmp和longjmp</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: 函数间跳转setjmp和longjmp</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="setjmp-and-longjmp">
+      <h2><a href="./">C Code</a>: 函数间跳转setjmp和longjmp</h2>
+	
+      	<div class="summary">
+		<h2>setjmp and longjmp</h2>
+
+<p><code>setjmp</code> 和 <code>longjmp</code> 一起可以实现函数间的跳转。这两个函数对于处理发生在深层次嵌套错误的场景中是非常有用的。
+同时，结合<code>clone</code>系统调用，还可以实现特殊的代码流程控制。</p>
+
+<p>但请注意该函数跳转后，对自动变量、寄存器变量、易失变量的影响。</p>
+
+      	</div>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;setjmp.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sched.h&gt;</span><span class="cp"></span>
+
+<span class="cp">#define	JUMP_PARENT	0x00</span>
+<span class="cp">#define JUMP_CHILD	0xA0</span>
+<span class="cp">#define	JUMP_INIT	0xA1</span>
+
+<span class="k">struct</span> <span class="n">clone_t</span>	<span class="p">{</span>
+	<span class="kt">char</span> <span class="n">stack</span><span class="p">[</span><span class="mi">4096</span><span class="p">]</span> <span class="n">__attribute__</span><span class="p">((</span><span class="n">aligned</span><span class="p">(</span><span class="mi">16</span><span class="p">)));</span>
+	<span class="kt">char</span> <span class="n">stack_ptr</span><span class="p">[</span><span class="mi">0</span><span class="p">];</span>
+
+	<span class="kt">jmp_buf</span>	<span class="o">*</span><span class="n">env</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">jmpval</span><span class="p">;</span>
+<span class="p">};</span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">child_func</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">arg</span><span class="p">)</span> <span class="n">__attribute__</span> <span class="p">((</span><span class="n">noinline</span><span class="p">));</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">child_func</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">arg</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">struct</span> <span class="n">clone_t</span>	<span class="o">*</span><span class="n">ca</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="n">clone_t</span><span class="o">*</span><span class="p">)</span><span class="n">arg</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">longjmp</span><span class="p">(</span><span class="o">*</span><span class="n">ca</span><span class="o">-&gt;</span><span class="n">env</span><span class="p">,</span> <span class="n">ca</span><span class="o">-&gt;</span><span class="n">jmpval</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">clone_parent</span><span class="p">(</span><span class="kt">jmp_buf</span> <span class="o">*</span><span class="n">env</span><span class="p">,</span> <span class="kt">int</span> <span class="n">jmpval</span><span class="p">)</span> <span class="n">__attribute__</span> <span class="p">((</span><span class="n">noinline</span><span class="p">));</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">clone_parent</span><span class="p">(</span><span class="kt">jmp_buf</span> <span class="o">*</span><span class="n">env</span><span class="p">,</span> <span class="kt">int</span> <span class="n">jmpval</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">struct</span> <span class="n">clone_t</span>	<span class="n">ca</span> <span class="o">=</span> <span class="p">{</span>
+		<span class="p">.</span><span class="n">env</span>	<span class="o">=</span> <span class="n">env</span><span class="p">,</span>
+		<span class="p">.</span><span class="n">jmpval</span> <span class="o">=</span> <span class="n">jmpval</span><span class="p">,</span>
+	<span class="p">};</span>
+
+	<span class="k">return</span> <span class="n">clone</span><span class="p">(</span><span class="n">child_func</span><span class="p">,</span> <span class="n">ca</span><span class="p">.</span><span class="n">stack_ptr</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ca</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+
+	<span class="kt">jmp_buf</span>	<span class="n">env</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>通过longjmp跳转到合适的位置，ca-&gt;jmpval就是setjmp的返回值</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">switch</span> <span class="p">(</span><span class="n">setjmp</span><span class="p">(</span><span class="n">env</span><span class="p">))</span> <span class="p">{</span>
+	<span class="k">case</span> <span class="nl">JUMP_PARENT</span><span class="p">:</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;parent: pid = %d, ppid = %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">getpid</span><span class="p">(),</span> <span class="n">getppid</span><span class="p">());</span>
+		<span class="n">clone_parent</span><span class="p">(</span><span class="o">&amp;</span><span class="n">env</span><span class="p">,</span> <span class="n">JUMP_CHILD</span><span class="p">);</span>
+		<span class="n">sleep</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+		<span class="k">break</span><span class="p">;</span>
+	<span class="k">case</span> <span class="nl">JUMP_CHILD</span><span class="p">:</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;child: pid = %d, ppid = %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">getpid</span><span class="p">(),</span> <span class="n">getppid</span><span class="p">());</span>
+		<span class="n">clone_parent</span><span class="p">(</span><span class="o">&amp;</span><span class="n">env</span><span class="p">,</span> <span class="n">JUMP_INIT</span><span class="p">);</span>
+		<span class="n">sleep</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+		<span class="k">break</span><span class="p">;</span>
+	<span class="k">case</span> <span class="nl">JUMP_INIT</span><span class="p">:</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;init: pid = %d, ppid = %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">getpid</span><span class="p">(),</span> <span class="n">getppid</span><span class="p">());</span>
+		<span class="k">break</span><span class="p">;</span>
+	<span class="k">default</span><span class="o">:</span>
+		<span class="k">break</span><span class="p">;</span>
+	<span class="p">}</span>
+
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>保存stack context/environment到env中，该env变量后续会被函数longjmp作为参数使用
+setjmp会直接返回0，如果从longjmp返回，返回值为longjmp的第二个参数的值。</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -o setjmp-and-longjmp setjmp-and-longjmp.c  <span class="c1"># 编译</span>
+$ ./setjmp-and-longjmp   <span class="c1"># 运行</span>
+parent: <span class="nv">pid</span> <span class="o">=</span> 120114, <span class="nv">ppid</span> <span class="o">=</span> 117936
+child: <span class="nv">pid</span> <span class="o">=</span> 120115, <span class="nv">ppid</span> <span class="o">=</span> 120114
+init: <span class="nv">pid</span> <span class="o">=</span> 120116, <span class="nv">ppid</span> <span class="o">=</span> 120115
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="abstract-unix-socket.html">Unix域抽象套接字</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="clone-parent.html">CLONE_PAREN示例程序</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

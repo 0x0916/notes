@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: 判断内核支持容器重启</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="test-container-reboot">
+      <h2><a href="./">C Code</a>: 判断内核支持容器重启</h2>
+	
+      	<div class="summary">
+		<p>该段代码用来判断当前内核上是否支持在容器里调用<code>reboot</code>系统调用<a href="https://github.com/torvalds/linux/commit/cf3f89214ef6a33fad60856bc5ffd7bb2fc4709b">的特殊处理方式</a>,</p>
+
+<p>在linux 3.4 之后的内核版本中，当在非<code>initial PID namespace</code>中的其他<code>PID Namespace</code>调用<code>reboot</code>系统
+调用，则会给其<code>PID Namespace</code>中的<code>init</code>进程发送信号。当命令为<code>LINUX_REBOOT_CMD_RESTART2</code>或者<code>LINUX_REBOOT_CMD_RESTART</code>
+时，会发送信号<code>SIGHUP</code>，当命令为 <code>LINUX_REBOOT_CMD_POWER_OFF</code>或者<code>LINUX_REBOOT_CMD_HALT</code>时，会发送信号<code>SIGINT</code>。当为其他命令
+时，<code>PID Namespace</code>中的<code>reboot</code>系统调用返回错误<code>-EINVAL</code>。</p>
+
+<p>一般地，在容器引擎的实现中，如果内核不支持<code>reboot_pid_ns</code>，为了安全起见，则应该取消容器的权限<code>CAP_SYS_BOOT</code>，否则的话，
+容器里的<code>reboot</code>调用会引起系统的重启。</p>
+
+      	</div>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#define _GNU_SOURCE</span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sched.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;alloca.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;signal.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;errno.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/reboot.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;linux/reboot.h&gt;</span><span class="cp"></span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">container_reboot_supported</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">arg</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="kt">int</span> <span class="o">*</span><span class="n">cmd</span> <span class="o">=</span> <span class="n">arg</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">ret</span><span class="p">;</span>
+
+	<span class="n">ret</span> <span class="o">=</span> <span class="n">reboot</span><span class="p">(</span><span class="o">*</span><span class="n">cmd</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="n">errno</span> <span class="o">==</span> <span class="n">EINVAL</span><span class="p">)</span> <span class="p">{</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>支持，返回1</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">FILE</span> <span class="o">*</span><span class="n">f</span><span class="p">;</span>
+	<span class="kt">long</span> <span class="n">stack_size</span> <span class="o">=</span> <span class="mi">4096</span><span class="p">;</span>
+	<span class="kt">void</span> <span class="o">*</span><span class="n">stack</span> <span class="o">=</span> <span class="n">alloca</span><span class="p">(</span><span class="n">stack_size</span><span class="p">);</span>
+	<span class="kt">pid_t</span>	<span class="n">pid</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">ret</span><span class="p">,</span> <span class="n">cmd</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">status</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>不支持，返回0</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">f</span> <span class="o">=</span> <span class="n">fopen</span><span class="p">(</span><span class="s">&quot;/proc/sys/kernel/ctrl-alt-del&quot;</span><span class="p">,</span> <span class="s">&quot;r&quot;</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">f</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;Failed to open /proc/sys/kernel/ctrl-alt-del</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="n">ret</span> <span class="o">=</span> <span class="n">fscanf</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="s">&quot;%d&quot;</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">v</span><span class="p">);</span>
+	<span class="n">fclose</span><span class="p">(</span><span class="n">f</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;Failed to read /proc/sys/kernel/ctrl-alt-del</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>可以通过命令LINUX_REBOOT_CMD_CAD_ON、LINUX_REBOOT_CMD_CAD_OFF来检查内核是否支持
+在容器里处理<code>reboot</code>系统调用。</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">cmd</span> <span class="o">=</span> <span class="n">v</span> <span class="o">?</span> <span class="nl">LINUX_REBOOT_CMD_CAD_ON</span><span class="p">:</span> <span class="n">LINUX_REBOOT_CMD_CAD_OFF</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>为了不修改当前系统的<code>ctrl-alt-del</code>配置，我们根据该配置的值，给<code>reboot</code>传递相应
+的命令。</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">pid</span> <span class="o">=</span> <span class="n">clone</span><span class="p">(</span><span class="n">container_reboot_supported</span><span class="p">,</span> <span class="n">stack</span><span class="o">+</span><span class="n">stack_size</span><span class="p">,</span> <span class="n">CLONE_NEWPID</span> <span class="o">|</span> <span class="n">SIGCHLD</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">cmd</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">pid</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span><span class="s">&quot;failed to clone : %m</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">wait</span><span class="p">(</span><span class="o">&amp;</span><span class="n">status</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;unexpected wait error: %m</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">WEXITSTATUS</span><span class="p">(</span><span class="n">status</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;Support Container Reboot</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+	<span class="k">else</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;Not Support Container Reboot</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>创建<code>子PID Namespace</code>进程</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -o test_container_reboot test_container_reboot.c 
+$ ./test_container_reboot 
+Support Container Reboot
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="ptytest.html">伪终端示例程序ptytest</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="real-time-signal.html">实时信号</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

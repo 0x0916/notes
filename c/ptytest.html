@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: 伪终端示例程序ptytest</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="ptytest">
+      <h2><a href="./">C Code</a>: 伪终端示例程序ptytest</h2>
+	
+      	<div class="summary">
+		<p>该程序非常简单，它创建了一个伪终端，在子进程中的slave pty中运行bash程序，这样在父进程的master pty就可以对bash进行操作。</p>
+
+<p>该示例程序来自于：《Linux Application Development》 Page 400-405</p>
+
+      	</div>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#define _GNU_SOURCE</span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;termios.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;signal.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;pty.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;errno.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;fcntl.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/poll.h&gt;</span><span class="cp"></span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="k">volatile</span>  <span class="kt">int</span> <span class="n">sigwinch</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>当收到信号SIGWINCH时，改变该值</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kt">void</span> <span class="nf">sigwinch_handler</span><span class="p">(</span><span class="kt">int</span> <span class="n">signal</span><span class="p">)</span> <span class="p">{</span>
+	<span class="n">sigwinch</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>信号SIGWINCH处理函数</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kt">int</span> <span class="nf">get_master_pty</span><span class="p">(</span><span class="kt">char</span> <span class="o">**</span><span class="n">name</span><span class="p">);</span>
+<span class="kt">int</span> <span class="nf">get_slave_pty</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">name</span><span class="p">);</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">int</span> <span class="n">pid</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">master</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="n">winsize</span> <span class="n">ws</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="n">sigaction</span> <span class="n">act</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">done</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="n">termios</span> <span class="n">ot</span><span class="p">,</span> <span class="n">t</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="n">pollfd</span> <span class="n">ufds</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+	<span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">ret</span><span class="p">;</span>
+	<span class="kt">char</span> <span class="o">*</span><span class="n">name</span><span class="p">;</span>
+<span class="cp">#define	BUFSIZE 1024</span>
+	<span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="n">BUFSIZE</span><span class="p">];</span>
+
+	<span class="k">if</span> <span class="p">((</span><span class="n">master</span> <span class="o">=</span> <span class="n">get_master_pty</span><span class="p">(</span><span class="o">&amp;</span><span class="n">name</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">perror</span><span class="p">(</span><span class="s">&quot;could not open master pty&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>char *ptsname(int);</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">STDIN_FILENO</span><span class="p">,</span> <span class="n">TIOCGWINSZ</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ws</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">{</span>
+		<span class="n">perror</span><span class="p">(</span><span class="s">&quot;could not get window size&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="p">((</span><span class="n">pid</span> <span class="o">=</span> <span class="n">fork</span><span class="p">())</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">perror</span><span class="p">(</span><span class="s">&quot;fork&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>获得当前终端的大小</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">if</span> <span class="p">(</span><span class="n">pid</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="kt">int</span> <span class="n">slave</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>子进程</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="n">close</span><span class="p">(</span><span class="n">master</span><span class="p">);</span>
+
+		<span class="k">if</span> <span class="p">((</span><span class="n">slave</span> <span class="o">=</span> <span class="n">get_slave_pty</span><span class="p">(</span><span class="n">name</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">perror</span><span class="p">(</span><span class="s">&quot;could not open slave pty&quot;</span><span class="p">);</span>
+			<span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+		<span class="p">}</span>
+		<span class="n">free</span><span class="p">(</span><span class="n">name</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>子进程中不需要master端，关闭它</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="k">if</span> <span class="p">(</span><span class="n">setsid</span><span class="p">()</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">perror</span><span class="p">(</span><span class="s">&quot;could not set session leader&quot;</span><span class="p">);</span>
+		<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>设置子进程会新的会话组leader</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">slave</span><span class="p">,</span> <span class="n">TIOCSCTTY</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">)</span> <span class="p">{</span>
+			<span class="n">perror</span><span class="p">(</span><span class="s">&quot;could not set new controlling tty&quot;</span><span class="p">);</span>
+		<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>设置控制终端</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="n">dup3</span><span class="p">(</span><span class="n">slave</span><span class="p">,</span> <span class="n">STDIN_FILENO</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+		<span class="n">dup3</span><span class="p">(</span><span class="n">slave</span><span class="p">,</span> <span class="n">STDOUT_FILENO</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+		<span class="n">dup3</span><span class="p">(</span><span class="n">slave</span><span class="p">,</span> <span class="n">STDERR_FILENO</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+
+		<span class="k">if</span> <span class="p">(</span><span class="n">slave</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">)</span>
+			<span class="n">close</span><span class="p">(</span><span class="n">slave</span><span class="p">);</span>
+
+		<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">STDOUT_FILENO</span><span class="p">,</span> <span class="n">TIOCSWINSZ</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ws</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">perror</span><span class="p">(</span><span class="s">&quot;could not restore window size&quot;</span><span class="p">);</span>
+		<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>复制slave端到标准输入、标准输出和标准错误输出</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="k">if</span> <span class="p">((</span><span class="n">ret</span> <span class="o">=</span> <span class="n">execl</span><span class="p">(</span><span class="s">&quot;/bin/bash&quot;</span><span class="p">,</span> <span class="s">&quot;/bin/bash&quot;</span><span class="p">,</span> <span class="p">(</span><span class="kt">char</span><span class="o">*</span><span class="p">)</span><span class="nb">NULL</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">perror</span><span class="p">(</span><span class="s">&quot;execl&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>运行shell</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>			<span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+		<span class="p">}</span>
+
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>从不会运行到这里</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">free</span><span class="p">(</span><span class="n">name</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>父进程</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">act</span><span class="p">.</span><span class="n">sa_handler</span> <span class="o">=</span> <span class="n">sigwinch_handler</span><span class="p">;</span>
+	<span class="n">sigemptyset</span><span class="p">(</span><span class="o">&amp;</span><span class="p">(</span><span class="n">act</span><span class="p">.</span><span class="n">sa_mask</span><span class="p">));</span>
+	<span class="n">act</span><span class="p">.</span><span class="n">sa_flags</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">sigaction</span><span class="p">(</span><span class="n">SIGWINCH</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">act</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">perror</span><span class="p">(</span><span class="s">&quot;could not handl SIGWINCH&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="n">tcgetattr</span><span class="p">(</span><span class="n">STDIN_FILENO</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ot</span><span class="p">);</span>
+	<span class="n">t</span> <span class="o">=</span> <span class="n">ot</span><span class="p">;</span>
+	<span class="n">t</span><span class="p">.</span><span class="n">c_lflag</span> <span class="o">&amp;=</span> <span class="o">~</span><span class="p">(</span><span class="n">ICANON</span> <span class="o">|</span> <span class="n">ISIG</span> <span class="o">|</span> <span class="n">ECHO</span><span class="o">|</span> <span class="n">ECHOCTL</span><span class="o">|</span> <span class="n">ECHOE</span> \
+			<span class="o">|</span> <span class="n">ECHOK</span><span class="o">|</span> <span class="n">ECHOKE</span><span class="o">|</span> <span class="n">ECHONL</span> <span class="o">|</span> <span class="n">ECHOPRT</span><span class="p">);</span>
+	<span class="n">t</span><span class="p">.</span><span class="n">c_iflag</span> <span class="o">|=</span> <span class="n">IGNBRK</span><span class="p">;</span>
+	<span class="n">t</span><span class="p">.</span><span class="n">c_cc</span><span class="p">[</span><span class="n">VMIN</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+	<span class="n">t</span><span class="p">.</span><span class="n">c_cc</span><span class="p">[</span><span class="n">VTIME</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+	<span class="n">tcsetattr</span><span class="p">(</span><span class="n">STDIN_FILENO</span><span class="p">,</span> <span class="n">TCSANOW</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">t</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>注册信号处理函数</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">ufds</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">fd</span> <span class="o">=</span> <span class="n">STDIN_FILENO</span><span class="p">;</span>
+	<span class="n">ufds</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">events</span> <span class="o">=</span> <span class="n">POLLIN</span><span class="p">;</span>
+	<span class="n">ufds</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">fd</span> <span class="o">=</span> <span class="n">master</span><span class="p">;</span>
+	<span class="n">ufds</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">events</span> <span class="o">=</span> <span class="n">POLLIN</span><span class="p">;</span>
+
+	<span class="k">do</span> <span class="p">{</span>
+		<span class="kt">int</span> <span class="n">r</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>监听父进程的标准输入和伪终端的master端</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="n">r</span> <span class="o">=</span> <span class="n">poll</span><span class="p">(</span><span class="n">ufds</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">);</span>
+		<span class="k">if</span> <span class="p">((</span><span class="n">r</span><span class="o">&lt;</span><span class="mi">0</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">errno</span> <span class="o">!=</span> <span class="n">EINTR</span><span class="p">))</span>	 <span class="p">{</span>
+			<span class="n">done</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+			<span class="k">break</span><span class="p">;</span>
+		<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>监听文件描述符</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="k">if</span> <span class="p">((</span><span class="n">ufds</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">revents</span> <span class="o">|</span> <span class="n">ufds</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">revents</span><span class="p">)</span> <span class="o">&amp;</span>
+				<span class="p">(</span><span class="n">POLLERR</span><span class="o">|</span> <span class="n">POLLHUP</span><span class="o">|</span> <span class="n">POLLNVAL</span><span class="p">))</span> <span class="p">{</span>
+			<span class="n">done</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+			<span class="k">break</span><span class="p">;</span>
+		<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>检测是否达到退出的条件</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="k">if</span> <span class="p">(</span><span class="n">sigwinch</span> <span class="p">)</span> <span class="p">{</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">STDIN_FILENO</span><span class="p">,</span> <span class="n">TIOCGWINSZ</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ws</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">{</span>
+				<span class="n">perror</span><span class="p">(</span><span class="s">&quot;could not get window size&quot;</span><span class="p">);</span>
+			<span class="p">}</span>
+
+			<span class="k">if</span> <span class="p">(</span><span class="n">ioctl</span><span class="p">(</span><span class="n">master</span><span class="p">,</span> <span class="n">TIOCSWINSZ</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ws</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="p">)</span> <span class="p">{</span>
+				<span class="n">perror</span><span class="p">(</span><span class="s">&quot;could not restore window size&quot;</span><span class="p">);</span>
+			<span class="p">}</span>
+
+			<span class="n">sigwinch</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+			<span class="k">continue</span><span class="p">;</span>
+		<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>如果需要，改变终端窗口的大小</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="k">if</span> <span class="p">(</span><span class="n">ufds</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="n">revents</span> <span class="o">&amp;</span> <span class="n">POLLIN</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">i</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">master</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">BUFSIZE</span><span class="p">);</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">)</span>
+				<span class="n">write</span><span class="p">(</span><span class="n">STDOUT_FILENO</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+			<span class="k">else</span>
+				<span class="n">done</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+		<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>当伪终端的master端有数据时，读取他，并将它写入父进程的标准输出中</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="k">if</span> <span class="p">(</span><span class="n">ufds</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">revents</span> <span class="o">&amp;</span> <span class="n">POLLIN</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">i</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">STDIN_FILENO</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">BUFSIZE</span><span class="p">);</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">)</span>
+				<span class="n">write</span><span class="p">(</span><span class="n">master</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+			<span class="k">else</span>
+				<span class="n">done</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+		<span class="p">}</span>
+	<span class="p">}</span><span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">done</span><span class="p">);</span>
+
+	<span class="n">tcsetattr</span><span class="p">(</span><span class="n">STDIN_FILENO</span><span class="p">,</span> <span class="n">TCSANOW</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ot</span><span class="p">);</span>
+	<span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>当标准输入有数据时，读取它，并将它写入伪终端的master端</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kt">int</span> <span class="nf">get_master_pty</span><span class="p">(</span><span class="kt">char</span> <span class="o">**</span><span class="n">name</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">int</span> <span class="n">master</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+	<span class="kt">char</span> <span class="o">*</span><span class="n">slavename</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p><code>get_master_pty</code>返回一个伪终端的master pty，并将对应的slave pty的名称通过<code>**name</code>返回</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">master</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="s">&quot;/dev/ptmx&quot;</span><span class="p">,</span> <span class="n">O_RDWR</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>打开伪终端克隆设备</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">if</span> <span class="p">(</span><span class="n">master</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">grantpt</span><span class="p">(</span><span class="n">master</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span>
+		<span class="n">unlockpt</span><span class="p">(</span><span class="n">master</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">slavename</span> <span class="o">=</span> <span class="n">ptsname</span><span class="p">(</span><span class="n">master</span><span class="p">);</span>
+
+		<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">slavename</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">close</span><span class="p">(</span><span class="n">master</span><span class="p">);</span>
+			<span class="n">master</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+		<span class="p">}</span><span class="k">else</span> <span class="p">{</span>
+			<span class="o">*</span><span class="n">name</span> <span class="o">=</span> <span class="n">strdup</span><span class="p">(</span><span class="n">slavename</span><span class="p">);</span>
+			<span class="k">return</span> <span class="n">master</span><span class="p">;</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+
+	<span class="k">return</span> <span class="n">master</span><span class="p">;</span>
+<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>设置伪终端slave端的权限，并准许对其的访问</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kt">int</span> <span class="nf">get_slave_pty</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">name</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">int</span> <span class="n">slave</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+
+	<span class="n">slave</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">O_RDWR</span><span class="p">);</span>
+
+	<span class="k">return</span> <span class="n">slave</span><span class="p">;</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>返回伪终端slave端的文件描述符</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -o ptytest ptytest.c </pre></div>
+          </td>
+	  <td class="docs">
+            <p>编译</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ <span class="nb">echo</span> <span class="nv">$$</span>
+30690</pre></div>
+          </td>
+	  <td class="docs">
+            <p>查看<code>bash</code>的进程号</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ ./ptytest 
+$ uname -r
+3.13.0-24-generic
+$ <span class="nb">echo</span> <span class="nv">$$</span>
+31890</pre></div>
+          </td>
+	  <td class="docs">
+            <p>运行程序，查看<code>bash</code>的进程号，此时<code>bash</code>为子进程中运行的</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ <span class="nb">exit</span>
+<span class="nb">exit</span>
+$ <span class="nb">echo</span> <span class="nv">$$</span>
+30690
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>退出<code>bash</code></p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="forkptytest.html">伪终端示例程序forkpty</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="test-container-reboot.html">判断内核支持容器重启</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

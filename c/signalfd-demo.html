@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: 用文件描述符来接收信号</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="signalfd-demo">
+      <h2><a href="./">C Code</a>: 用文件描述符来接收信号</h2>
+	
+      	<div class="summary">
+		<p><code>signalfd</code>用来创建一个文件描述符来接收发送给调用者进程的信号。这样用户就可以使用<code>select(2)</code>,<code>poll(2)</code>,<code>epoll(7)</code>来监听文件描述符了，从而处理信号。</p>
+
+      	</div>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;sys/signalfd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;signal.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+
+
+<span class="cp">#define handle_error(msg)		\</span>
+<span class="cp">	do {perror(msg); exit(EXIT_FAILURE);} while (0)</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">sigset_t</span>	<span class="n">mask</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">sigfd</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="n">signalfd_siginfo</span>	<span class="n">fdsi</span><span class="p">;</span>
+	<span class="kt">ssize_t</span>	<span class="n">s</span><span class="p">;</span>
+
+	<span class="n">sigemptyset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">mask</span><span class="p">);</span>
+	<span class="n">sigaddset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">mask</span><span class="p">,</span> <span class="n">SIGINT</span><span class="p">);</span>
+	<span class="n">sigaddset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">mask</span><span class="p">,</span> <span class="n">SIGQUIT</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">if</span> <span class="p">(</span><span class="n">sigprocmask</span><span class="p">(</span><span class="n">SIG_BLOCK</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">mask</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">handle_error</span><span class="p">(</span><span class="s">&quot;sigprocmask&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Block signals so that they are not handled
+according to their default dispositions</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">sigfd</span> <span class="o">=</span> <span class="n">signalfd</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">mask</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">sigfd</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">handle_error</span><span class="p">(</span><span class="s">&quot;signalfd&quot;</span><span class="p">);</span>
+
+	<span class="k">for</span><span class="p">(;;)</span> <span class="p">{</span>
+		<span class="n">s</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">sigfd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">fdsi</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">signalfd_siginfo</span><span class="p">));</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">s</span> <span class="o">!=</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">signalfd_siginfo</span><span class="p">))</span>
+			<span class="n">handle_error</span><span class="p">(</span><span class="s">&quot;read&quot;</span><span class="p">);</span>
+
+		<span class="k">if</span> <span class="p">(</span><span class="n">fdsi</span><span class="p">.</span><span class="n">ssi_signo</span> <span class="o">==</span> <span class="n">SIGINT</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">Got SIGINT</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="p">}</span><span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">fdsi</span><span class="p">.</span><span class="n">ssi_signo</span> <span class="o">==</span> <span class="n">SIGQUIT</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">Got SIGQUIT</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>创建一个文件描述符，用来接收信号, <code>mask</code>说明了
+期望通过文件描述符接收的信号集合</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>			<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_SUCCESS</span><span class="p">);</span>
+		<span class="p">}</span><span class="k">else</span> <span class="p">{</span>
+			<span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">Read unexpected signal</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>当收到信号<code>SIGQUIT</code>时，退出程序</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$  gcc -o signalfd_demo signalfd_demo.c 
+$  ./signalfd_demo </pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>^C
+Got SIGINT
+^C
+Got SIGINT</pre></div>
+          </td>
+	  <td class="docs">
+            <p>Control-C generates SIGINT</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>^<span class="se">\</span>
+Got SIGQUIT 
+$ <span class="c1"># 程序退出</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>Control-\ generates SIGQUIT</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="real-time-signal.html">实时信号</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="unix-socket.html">Unix域套接字</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

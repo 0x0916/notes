@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: 实时信号</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="real-time-signal">
+      <h2><a href="./">C Code</a>: 实时信号</h2>
+	
+      	<div class="summary">
+		<p><code>POSIX 信号模型</code>具有一些约束限制，比如：</p>
+
+<ul>
+<li>when a signal is pending sending that signal again does not result in multiple signal deliveries</li>
+<li>the lack of the ordering guarantees for the delivery of multiple different signals(is you send a SIGTERM followed by a SIGKILL there is no way of knowing which one will be delivered first)</li>
+</ul>
+
+<p><code>POSIX Real Time Signal</code> 通过新加了一些信号，解决了如上的限制，请请注意，对于移植性要求比较高的程序，建议使用<code>POSIX 信号模型</code>。</p>
+
+<p>信号值在<code>SIGRTMIN</code>和<code>SIGRTMAX</code>之间的信号，都属于<code>Real-Time Signals</code>(POSIX并没有定义其确切的值).<code>Real-Time Signals</code>总是进行排队，每一个信号都可以发送到接收的进程而不会丢失。
+信号值越小，该信号就会优先发送到接收的进程。同一个<code>Real-Time Signals</code>多次发送，进程会收到多次该信号，接收到的顺序跟信号发送的顺序一致。</p>
+
+      	</div>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/signal.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+
+
+<span class="kt">int</span> <span class="n">next_sig</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="kt">int</span> <span class="n">sig_order</span> <span class="p">[</span><span class="mi">10</span><span class="p">];</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kt">void</span> <span class="nf">handler</span><span class="p">(</span><span class="kt">int</span> <span class="n">signo</span><span class="p">)</span> <span class="p">{</span>
+	<span class="n">sig_order</span><span class="p">[</span><span class="n">next_sig</span><span class="o">++</span><span class="p">]</span> <span class="o">=</span> <span class="n">signo</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">sigset_t</span>	<span class="n">mask</span><span class="p">;</span>
+	<span class="kt">sigset_t</span>	<span class="n">old_mask</span><span class="p">;</span>
+	<span class="k">struct</span>	<span class="n">sigaction</span>	<span class="n">act</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">i</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>信号处理函数，用来记录信号的处理顺序</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">sigemptyset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">mask</span><span class="p">);</span>
+	<span class="n">sigaddset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">mask</span><span class="p">,</span> <span class="n">SIGRTMIN</span><span class="p">);</span>
+	<span class="n">sigaddset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">mask</span><span class="p">,</span> <span class="n">SIGRTMIN</span><span class="o">+</span><span class="mi">1</span><span class="p">);</span>
+	<span class="n">sigaddset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">mask</span><span class="p">,</span> <span class="n">SIGUSR1</span><span class="p">);</span>
+
+	<span class="n">act</span><span class="p">.</span><span class="n">sa_handler</span> <span class="o">=</span> <span class="n">handler</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>该程序中要处理的信号集合</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">act</span><span class="p">.</span><span class="n">sa_mask</span> <span class="o">=</span> <span class="n">mask</span><span class="p">;</span>
+	<span class="n">act</span><span class="p">.</span><span class="n">sa_flags</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+	<span class="n">sigaction</span><span class="p">(</span><span class="n">SIGRTMIN</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">act</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+	<span class="n">sigaction</span><span class="p">(</span><span class="n">SIGRTMIN</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">act</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+	<span class="n">sigaction</span><span class="p">(</span><span class="n">SIGUSR1</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">act</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>设置<code>sa_mask</code>的目的是：防止信号处理函数handler中的竞争。</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">sigprocmask</span><span class="p">(</span><span class="n">SIG_BLOCK</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">mask</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">old_mask</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>BLOCK这些信号，以方便我们查看这些信号的处理顺序</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">raise</span><span class="p">(</span><span class="n">SIGRTMIN</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+	<span class="n">raise</span><span class="p">(</span><span class="n">SIGRTMIN</span><span class="p">);</span>
+	<span class="n">raise</span><span class="p">(</span><span class="n">SIGRTMIN</span><span class="p">);</span>
+	<span class="n">raise</span><span class="p">(</span><span class="n">SIGRTMIN</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+	<span class="n">raise</span><span class="p">(</span><span class="n">SIGRTMIN</span><span class="p">);</span>
+	<span class="n">raise</span><span class="p">(</span><span class="n">SIGUSR1</span><span class="p">);</span>
+	<span class="n">raise</span><span class="p">(</span><span class="n">SIGUSR1</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>使用<code>raise</code>给当前进程发送信号</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">sigprocmask</span><span class="p">(</span><span class="n">SIG_SETMASK</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">old_mask</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;signals received:</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+	<span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">next_sig</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">sig_order</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">SIGRTMIN</span><span class="p">)</span>
+			<span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">%s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">strsignal</span><span class="p">(</span><span class="n">sig_order</span><span class="p">[</span><span class="n">i</span><span class="p">]));</span>
+		<span class="k">else</span>
+			<span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">SIGRTMIN + %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">sig_order</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">SIGRTMIN</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>使能信号的传递，信号处理完后，该函数才返回。</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -o real-time-signal real-time-signal.c 
+$ ./real-time-signal 
+signals received:
+	User defined signal 1
+	SIGRTMIN + 0
+	SIGRTMIN + 0
+	SIGRTMIN + 0
+	SIGRTMIN + 1
+	SIGRTMIN + 1
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="test-container-reboot.html">判断内核支持容器重启</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="signalfd-demo.html">用文件描述符来接收信号</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

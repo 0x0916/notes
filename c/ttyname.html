@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: 获取一个终端的名称</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="ttyname">
+      <h2><a href="./">C Code</a>: 获取一个终端的名称</h2>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">){</span>
+	<span class="kt">char</span> <span class="o">*</span><span class="n">name</span><span class="p">;</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">isatty</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span> <span class="p">{</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="n">name</span> <span class="o">=</span> <span class="n">ttyname</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">name</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+			<span class="n">name</span> <span class="o">=</span> <span class="s">&quot;undefined&quot;</span><span class="p">;</span>
+	<span class="p">}</span><span class="k">else</span> <span class="p">{</span>
+		<span class="n">name</span> <span class="o">=</span> <span class="s">&quot;not a tty&quot;</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;fd 0: %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">);</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">isatty</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="p">{</span>
+		<span class="n">name</span> <span class="o">=</span> <span class="n">ttyname</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">name</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+			<span class="n">name</span> <span class="o">=</span> <span class="s">&quot;undefined&quot;</span><span class="p">;</span>
+	<span class="p">}</span><span class="k">else</span> <span class="p">{</span>
+		<span class="n">name</span> <span class="o">=</span> <span class="s">&quot;not a tty&quot;</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;fd 1: %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">);</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">isatty</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="p">{</span>
+		<span class="n">name</span> <span class="o">=</span> <span class="n">ttyname</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">name</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+			<span class="n">name</span> <span class="o">=</span> <span class="s">&quot;undefined&quot;</span><span class="p">;</span>
+	<span class="p">}</span><span class="k">else</span> <span class="p">{</span>
+		<span class="n">name</span> <span class="o">=</span> <span class="s">&quot;not a tty&quot;</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;fd 2: %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">);</span>
+
+	<span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p><code>ttyname</code>获取文件描述符上打开的终端设备的路径名</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -o ttyname ttyname.c 
+$ ./ttyname &lt;/dev/console 2&gt;/dev/null
+fd 0: /dev/console
+fd 1: /dev/pts/8
+fd 2: not a tty
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="isatty.html">判断一个文件描述符引用的是否是一个终端</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="passing-file-descriptors.html">传递文件描述符</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

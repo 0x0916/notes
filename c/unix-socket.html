@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: Unix域套接字</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="unix-socket">
+      <h2><a href="./">C Code</a>: Unix域套接字</h2>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+
+<span class="cp">#include</span> <span class="cpf">&quot;sockutil.h&quot;</span><span class="cp"></span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kt">void</span> <span class="nf">die</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">msg</span><span class="p">){</span>
+	<span class="n">perror</span><span class="p">(</span><span class="n">msg</span><span class="p">);</span>
+	<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>打印错误，并结束程序的执行</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="kt">void</span> <span class="nf">copy_data</span><span class="p">(</span><span class="kt">int</span> <span class="n">from</span><span class="p">,</span> <span class="kt">int</span> <span class="n">to</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">char</span> <span class="n">buf</span><span class="p">[</span><span class="mi">1024</span><span class="p">];</span>
+	<span class="kt">int</span> <span class="n">amount</span><span class="p">;</span>
+
+	<span class="k">while</span> <span class="p">((</span><span class="n">amount</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">from</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">buf</span><span class="p">)))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">write</span><span class="p">(</span><span class="n">to</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">amount</span><span class="p">)</span><span class="o">!=</span> <span class="n">amount</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">die</span><span class="p">(</span><span class="s">&quot;write&quot;</span><span class="p">);</span>
+			<span class="k">return</span><span class="p">;</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">amount</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;read&quot;</span><span class="p">);</span>
+
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>从文件描述符<code>from</code>拷贝数据到文件描述符<code>to</code>，直到没有数据为止。
+如果出现错误，则退出</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#ifndef SOCK_UNIX_H</span>
+<span class="cp">#define SOCK_UNIX_H</span>
+<span class="kt">void</span> <span class="nf">die</span><span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="n">msg</span><span class="p">);</span>
+<span class="kt">void</span> <span class="nf">copy_data</span><span class="p">(</span><span class="kt">int</span> <span class="n">from</span><span class="p">,</span> <span class="kt">int</span> <span class="n">to</span><span class="p">);</span>
+<span class="cp">#endif  </span><span class="cm">/*SOCK_UNIX_H*/</span><span class="cp"></span>
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;sys/socket.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/un.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+
+<span class="cp">#include</span> <span class="cpf">&quot;sockutil.h&quot;</span><span class="cp"></span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">struct</span> <span class="n">sockaddr_un</span>	<span class="n">address</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">sock</span><span class="p">;</span>
+	<span class="kt">socklen_t</span> <span class="n">addr_len</span><span class="p">;</span>
+
+	<span class="k">if</span> <span class="p">((</span><span class="n">sock</span> <span class="o">=</span> <span class="n">socket</span><span class="p">(</span><span class="n">AF_UNIX</span><span class="p">,</span> <span class="n">SOCK_STREAM</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;socket&quot;</span><span class="p">);</span>
+
+	<span class="n">address</span><span class="p">.</span><span class="n">sun_family</span> <span class="o">=</span> <span class="n">AF_UNIX</span><span class="p">;</span>
+	<span class="n">strcpy</span><span class="p">(</span><span class="n">address</span><span class="p">.</span><span class="n">sun_path</span><span class="p">,</span> <span class="s">&quot;./sample-socket&quot;</span><span class="p">);</span>
+
+	<span class="n">addr_len</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">address</span><span class="p">.</span><span class="n">sun_family</span><span class="p">)</span> <span class="o">+</span>
+			<span class="k">sizeof</span><span class="p">(</span><span class="n">address</span><span class="p">.</span><span class="n">sun_path</span><span class="p">);</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">connect</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">address</span><span class="p">,</span> <span class="n">addr_len</span><span class="p">))</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;connect&quot;</span><span class="p">);</span>
+
+	<span class="n">copy_data</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">sock</span><span class="p">);</span>
+
+	<span class="n">close</span><span class="p">(</span><span class="n">sock</span><span class="p">);</span>
+	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/socket.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/un.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+
+<span class="cp">#include</span> <span class="cpf">&quot;sockutil.h&quot;</span><span class="cp"></span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">struct</span> <span class="n">sockaddr_un</span>	<span class="n">address</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">sock</span><span class="p">,</span> <span class="n">conn</span><span class="p">;</span>
+	<span class="kt">socklen_t</span> <span class="n">addr_len</span><span class="p">;</span>
+
+	<span class="k">if</span> <span class="p">((</span><span class="n">sock</span> <span class="o">=</span> <span class="n">socket</span><span class="p">(</span><span class="n">AF_UNIX</span><span class="p">,</span> <span class="n">SOCK_STREAM</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;socket&quot;</span><span class="p">);</span>
+
+	<span class="n">unlink</span><span class="p">(</span><span class="s">&quot;./sample-socket&quot;</span><span class="p">);</span>
+
+	<span class="n">address</span><span class="p">.</span><span class="n">sun_family</span> <span class="o">=</span> <span class="n">AF_UNIX</span><span class="p">;</span>
+	<span class="n">strcpy</span><span class="p">(</span><span class="n">address</span><span class="p">.</span><span class="n">sun_path</span><span class="p">,</span> <span class="s">&quot;./sample-socket&quot;</span><span class="p">);</span>
+
+	<span class="n">addr_len</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">address</span><span class="p">.</span><span class="n">sun_family</span><span class="p">)</span> <span class="o">+</span>
+			<span class="k">sizeof</span><span class="p">(</span><span class="n">address</span><span class="p">.</span><span class="n">sun_path</span><span class="p">);</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">bind</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">address</span><span class="p">,</span> <span class="n">addr_len</span><span class="p">))</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;bind&quot;</span><span class="p">);</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">listen</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;listen&quot;</span><span class="p">);</span>
+
+	<span class="k">while</span> <span class="p">((</span><span class="n">conn</span> <span class="o">=</span> <span class="n">accept</span><span class="p">(</span><span class="n">sock</span><span class="p">,</span> <span class="p">(</span><span class="k">struct</span> <span class="n">sockaddr</span> <span class="o">*</span><span class="p">)</span> <span class="o">&amp;</span><span class="n">address</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">addr_len</span><span class="p">))</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;----------getting data</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="n">copy_data</span><span class="p">(</span><span class="n">conn</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;----------done</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="n">close</span><span class="p">(</span><span class="n">conn</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">conn</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+		<span class="n">die</span><span class="p">(</span><span class="s">&quot;accept&quot;</span><span class="p">);</span>
+
+	<span class="n">close</span><span class="p">(</span><span class="n">sock</span><span class="p">);</span>
+	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -c -o sockutil.o sockutil.c 
+$ gcc -c -o userver.o userver.c 
+$ gcc -c -o uclient.o uclient.c 
+$ gcc -o userver userver.o sockutil.o
+$ gcc -o uclient uclient.o sockutil.o
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>编译程序</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="signalfd-demo.html">用文件描述符来接收信号</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="abstract-unix-socket.html">Unix域抽象套接字</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/datawolf">@datawolf</a> | <a href="mailto:wanglong@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>
