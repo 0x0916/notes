@@ -1,5 +1,6 @@
 Hello World
 isatty->判断一个文件描述符引用的是否是一个终端
+ttyname->获取一个终端的名称
 Passing File Descriptors->传递文件描述符
 Sshpass->sshpass工具注解
 pty->伪终端
