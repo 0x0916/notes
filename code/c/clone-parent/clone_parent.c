@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <setjmp.h>
 #include <sched.h>
+#include <signal.h>
 
 #define	JUMP_PARENT	0x00
 #define JUMP_CHILD	0xA0
@@ -28,8 +29,9 @@ static int clone_parent(jmp_buf *env, int jmpval) {
 		.env	= env,
 		.jmpval = jmpval,
 	};
-
-	return clone(child_func, ca.stack_ptr, CLONE_PARENT, &ca);
+	// CLONE_PARENT: 创建的子进程的父进程是调用者的父进程，新进程与创建它的进程成了`兄弟`而不是`父子`
+	// SIGCHLD： flags的低字节包含了子进程死亡的时候发送给父进程的信号
+	return clone(child_func, ca.stack_ptr, CLONE_PARENT | SIGCHLD, &ca);
 }
 
 int main(int argc, char **argv) {
