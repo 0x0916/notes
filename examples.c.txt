@@ -14,3 +14,4 @@ Abstract Unix Socket->Unix域抽象套接字
 setjmp and longjmp->函数间跳转setjmp和longjmp
 clone parent->CLONE_PAREN示例程序
 setgroups getgroups->get/set list of supplementary group IDs
+initgroups->initialize the supplementary group access list
