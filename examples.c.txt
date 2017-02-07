@@ -15,3 +15,4 @@ setjmp and longjmp->函数间跳转setjmp和longjmp
 clone parent->CLONE_PAREN示例程序
 setgroups getgroups->get/set list of supplementary group IDs
 initgroups->initialize the supplementary group access list
+pipes simple pipe->using a pipe to communicate between a parent and a child process
