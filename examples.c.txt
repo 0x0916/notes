@@ -19,3 +19,4 @@ pipes simple pipe->using a pipe to communicate between a parent and a child proc
 pipes pipe sync->Using a pipe to synchronize multiple process
 pipes ls wc->Using a pipe to connect ls and wc
 pipes popen glob->Globbing filename patterns with popen()
+pipes fifo seqnum->Using FIFOs in a single-server and multiple-client application
