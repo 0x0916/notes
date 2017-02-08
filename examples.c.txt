@@ -18,3 +18,4 @@ initgroups->initialize the supplementary group access list
 pipes simple pipe->using a pipe to communicate between a parent and a child process
 pipes pipe sync->Using a pipe to synchronize multiple process
 pipes ls wc->Using a pipe to connect ls and wc
+pipes popen glob->Globbing filename patterns with popen()
