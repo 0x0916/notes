@@ -21,3 +21,4 @@ pipes ls wc->Using a pipe to connect ls and wc
 pipes popen glob->Globbing filename patterns with popen()
 pipes fifo seqnum->Using FIFOs in a single-server and multiple-client application
 pgsjc setsid->Create a new session
+pgsjc catch sighup->Handling of SIGHUP by the shell
