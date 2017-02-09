@@ -22,3 +22,4 @@ pipes popen glob->Globbing filename patterns with popen()
 pipes fifo seqnum->Using FIFOs in a single-server and multiple-client application
 pgsjc setsid->Create a new session
 pgsjc catch sighup->Handling of SIGHUP by the shell
+pgsjc disc sighup->SIGHUP and termination of the controlling process
