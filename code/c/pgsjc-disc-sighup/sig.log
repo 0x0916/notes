@@ -1,8 +1,0 @@
-PID of parent process is :	14555
-Foreground process group ID is: 14555
-PID=14965, PPID=14555
-PID=14555, PPID=14451
-PID=14966, PPID=14555
-PID=14967, PPID=14555
-PID 14966: caught signal  1 (Hangup)
-PID 14967: caught signal  1 (Hangup)

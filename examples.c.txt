@@ -12,7 +12,7 @@ Signalfd Demo->用文件描述符来接收信号
 Unix Socket->Unix域套接字
 Abstract Unix Socket->Unix域抽象套接字
 setjmp and longjmp->函数间跳转setjmp和longjmp
-clone parent->CLONE_PAREN示例程序
+clone parent->CLONE_PARENT示例程序
 setgroups getgroups->get/set list of supplementary group IDs
 initgroups->initialize the supplementary group access list
 pipes simple pipe->using a pipe to communicate between a parent and a child process
@@ -23,3 +23,4 @@ pipes fifo seqnum->Using FIFOs in a single-server and multiple-client applicatio
 pgsjc setsid->Create a new session
 pgsjc catch sighup->Handling of SIGHUP by the shell
 pgsjc disc sighup->SIGHUP and termination of the controlling process
+Regular Expression Matching->正则表达式使用方法
