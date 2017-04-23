@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: 正则表达式使用方法</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="regular-expression-matching">
+      <h2><a href="./">C Code</a>: 正则表达式使用方法</h2>
+	
+      	<div class="summary">
+		<p><code>GNU C</code> 支持两种匹配正则表达式的接口，一种为标准的<code>POSIX.2</code>接口，另外一种存在于<code>GNU C</code>中很多年了。这两种接口都在头文件<code>regex.h</code>中声明，如果你定义了<code>_POSIX_C_SOURCE</code>,则只会声明标准的<code>POSIX.2</code>接口。</p>
+
+<p>C语言处理正在表达式常用的函数有<code>regcomp()</code>,<code>regexec()</code>,<code>regfree()</code>, <code>regfree()</code>,一般分为三个步骤，如下所示：</p>
+
+<ul>
+<li>编译正则表达式<code>regcomp</code></li>
+<li>匹配正则表达式<code>regexec</code></li>
+<li>释放正则表达式<code>regfree</code></li>
+</ul>
+
+<h2>编译正则表达式</h2>
+
+<pre><code class="language-c">	int regcomp (regex_t *compiled, const char *pattern, int cflags);
+</code></pre>
+
+<p>这个函数把指定的正则表达式<code>pattern</code>编译成一种特定的数据格式<code>compiled</code>，这样可以使匹配更有效。</p>
+
+<p>参数说明：</p>
+
+<ul>
+<li><code>regex_t</code> 是一个结构体数据类型，用来存放编译后的正则表达式，它的成员<code>re_nsub</code> 用来存储正则表达式中的子正则表达式的个数，子正则表达式就是用圆括号包起来的部分表达式。</li>
+<li><code>pattern</code> 是指向我们写好的正则表达式的指针。</li>
+<li><code>cflags</code> 有如下4个值或者是它们或运算<code>(|)</code>后的值：</li>
+<li><code>REG_EXTENDED</code> 以功能更加强大的扩展正则表达式的方式进行匹配。</li>
+<li><code>REG_ICASE</code> 匹配字母时忽略大小写。</li>
+<li><code>REG_NOSUB</code> 不用存储匹配后的结果。</li>
+<li><code>REG_NEWLINE</code> 识别换行符，这样<code>$</code>就可以从行尾开始匹配，<code>^</code>就可以从行的开头开始匹配。</li>
+</ul>
+
+<h2>匹配正则表达式</h2>
+
+<pre><code class="language-c">	int regexec (regex_t *compiled, char *string, size_t nmatch, regmatch_t matchptr [], int eflags);
+</code></pre>
+
+<p>当我们编译好正则表达式后，就可以用<code>regexec</code> 匹配我们的目标文本串了，如果在编译正则表达式的时候没有指定<code>cflags</code>的参数为<code>REG_NEWLINE</code>，则默认情况下是忽略换行符的，也就是把整个文本串当作一个字符串处理。</p>
+
+<p><code>regmatch_t</code>是一个结构体数据类型，在<code>regex.h</code>中定义:</p>
+
+<pre><code class="language-c">typedef struct
+{
+   regoff_t rm_so;
+   regoff_t rm_eo;
+} regmatch_t;
+</code></pre>
+
+<p>成员<code>rm_so</code> 存放匹配文本串在目标串中的开始位置，<code>rm_eo</code> 存放结束位置。通常我们以数组的形式定义一组这样的结构。因为往往我们的正则表达式中还包含子正则表达式。数组0单元存放主正则表达式位置，后边的单元依次存放子正则表达式位置。</p>
+
+<p>参数说明：
+* <code>compiled</code> 是已经用<code>regcomp</code>函数编译好的正则表达式。
+* <code>string</code> 是目标文本串。
+* <code>nmatch</code> 是<code>regmatch_t</code>结构体数组的长度。
+* <code>matchptr</code> <code>regmatch_t</code>类型的结构体数组，存放匹配文本串的位置信息。
+* <code>eflags</code> 有两个值</p>
+
+<ul>
+<li><code>REG_NOTBOL</code> 让特殊字符<code>^</code>无作用</li>
+<li><code>REG_NOTEOL</code> 让特殊字符<code>$</code>无作用</li>
+</ul>
+
+<h2>释放正则表达式</h2>
+
+<pre><code class="language-c">void regfree (regex_t *compiled);
+</code></pre>
+
+<p>当我们使用完编译好的正则表达式后，或者要重新编译其他正则表达式的时候，我们可以用这个函数清空<code>compiled</code>指向的<code>regex_t</code>结构体的内容，请记住，如果是重新编译的话，一定要先清空<code>regex_t</code>结构体。</p>
+
+<h2>返回<code>regcomp</code>,<code>regexec</code>的错误原因</h2>
+
+<pre><code class="language-c">size_t regerror (int errcode, regex_t *compiled, char *buffer, size_t length);
+</code></pre>
+
+<p>当执行<code>regcomp</code> 或者<code>regexec</code> 产生错误的时候，就可以调用这个函数而返回一个包含错误信息的字符串。</p>
+
+<p>参数说明：
+* <code>errcode</code> 是由<code>regcomp</code> 和 <code>regexec</code> 函数返回的错误代号。
+* <code>compiled</code> 是已经用<code>regcomp</code>函数编译好的正则表达式，这个值可以为<code>NULL</code>。
+* <code>buffer</code> 指向用来存放错误信息的字符串的内存空间。
+* <code>length</code> 指明<code>buffer</code>的长度，如果这个错误信息的长度大于这个值，则<code>regerror</code> 函数会自动截断超出的字符串，但他仍然会返回完整的字符串的长度。所以我们可以用如下的方法先得到错误字符串的长度。</p>
+
+<pre><code class="language-c">size_t length = regerror (errcode, compiled, NULL, 0);
+</code></pre>
+
+<h2>示例1</h2>
+
+<p>一个简单的匹配email的例子</p>
+
+<h2>示例2</h2>
+
+<p>从命令行获取正则表达式，然后将其运用于从标准输入得到的每行数据，并打印出匹配结果。</p>
+
+      	</div>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cm">/*</span>
+<span class="cm"> * 示例1</span>
+<span class="cm"> **/</span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;regex.h&gt;</span><span class="cp"></span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">int</span> <span class="n">ret</span><span class="p">,</span> <span class="n">i</span><span class="p">;</span>
+	<span class="n">regex_t</span> <span class="n">reg</span><span class="p">;</span>
+	<span class="n">regmatch_t</span> <span class="n">pmatch</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+	<span class="kt">size_t</span>	<span class="n">nmatch</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+
+	<span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">pattern</span> <span class="o">=</span> <span class="s">&quot;^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(.[a-zA-Z0-9_-]+)+$&quot;</span><span class="p">;</span>
+	<span class="kt">char</span> <span class="o">*</span><span class="n">text</span> <span class="o">=</span> <span class="s">&quot;w-w@laoqinren.net&quot;</span><span class="p">;</span>
+
+	<span class="n">ret</span> <span class="o">=</span> <span class="n">regcomp</span><span class="p">(</span><span class="o">&amp;</span><span class="n">reg</span><span class="p">,</span> <span class="n">pattern</span><span class="p">,</span> <span class="n">REG_EXTENDED</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;regcomp failed&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="n">ret</span> <span class="o">=</span> <span class="n">regexec</span><span class="p">(</span><span class="o">&amp;</span><span class="n">reg</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">nmatch</span><span class="p">,</span> <span class="n">pmatch</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">==</span> <span class="n">REG_NOMATCH</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;NOMATCH</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+	<span class="p">}</span><span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">==</span> <span class="mi">0</span><span class="p">){</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;MATCH</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="n">pmatch</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">rm_so</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">pmatch</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">rm_eo</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span>
+			<span class="n">putchar</span><span class="p">(</span><span class="n">text</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="n">regfree</span><span class="p">(</span><span class="o">&amp;</span><span class="n">reg</span><span class="p">);</span>
+
+	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cm">/*</span>
+<span class="cm"> * 示例2</span>
+<span class="cm"> **/</span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;regex.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp"></span>
+
+<span class="kt">char</span> <span class="o">*</span><span class="nf">substr</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">str</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="n">start</span><span class="p">,</span> <span class="kt">unsigned</span> <span class="n">end</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">unsigned</span> <span class="n">n</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="p">;</span>
+	<span class="kt">char</span> <span class="o">*</span><span class="n">retstr</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">((</span><span class="n">n</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span><span class="o">*</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">char</span><span class="p">));</span>
+
+	<span class="n">strncpy</span><span class="p">(</span><span class="n">retstr</span><span class="p">,</span> <span class="n">str</span><span class="o">+</span><span class="n">start</span><span class="p">,</span> <span class="n">n</span><span class="p">);</span>
+	<span class="n">retstr</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+	<span class="k">return</span> <span class="n">retstr</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">int</span> <span class="n">ret</span><span class="p">,</span> <span class="n">lno</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">i</span><span class="p">;</span>
+	<span class="n">regex_t</span>	<span class="n">reg</span><span class="p">;</span>
+	<span class="kt">char</span> <span class="n">ebuf</span><span class="p">[</span><span class="mi">128</span><span class="p">],</span> <span class="n">lbuf</span><span class="p">[</span><span class="mi">256</span><span class="p">];</span>
+	<span class="n">regmatch_t</span>	<span class="o">*</span><span class="n">pmatch</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+	<span class="kt">size_t</span>	<span class="n">nmatch</span><span class="p">;</span>
+	<span class="kt">char</span> <span class="o">*</span><span class="n">pattern</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;Usage: %s &lt;regex expression&gt;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="n">pattern</span> <span class="o">=</span> <span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">ret</span> <span class="o">=</span> <span class="n">regcomp</span><span class="p">(</span><span class="o">&amp;</span><span class="n">reg</span><span class="p">,</span> <span class="n">pattern</span><span class="p">,</span> <span class="n">REG_EXTENDED</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">regerror</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">reg</span><span class="p">,</span> <span class="n">ebuf</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ebuf</span><span class="p">));</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;regcomp failed: %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">ebuf</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>编译正则表达式</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">nmatch</span> <span class="o">=</span> <span class="n">reg</span><span class="p">.</span><span class="n">re_nsub</span><span class="p">;</span>
+	<span class="n">pmatch</span> <span class="o">=</span> <span class="p">(</span><span class="n">regmatch_t</span> <span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">((</span><span class="n">nmatch</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">regmatch_t</span><span class="p">));</span>
+	<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">pmatch</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;malloc failed.</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="k">while</span> <span class="p">(</span><span class="n">fgets</span><span class="p">(</span><span class="n">lbuf</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">lbuf</span><span class="p">),</span> <span class="n">stdin</span><span class="p">))</span> <span class="p">{</span>
+		<span class="n">lno</span><span class="o">++</span><span class="p">;</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">lbuf</span><span class="p">[</span><span class="n">strlen</span><span class="p">(</span><span class="n">lbuf</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="sc">&#39;\n&#39;</span><span class="p">)</span>
+			<span class="n">lbuf</span><span class="p">[</span><span class="n">strlen</span><span class="p">(</span><span class="n">lbuf</span><span class="p">)</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+
+		<span class="n">ret</span> <span class="o">=</span> <span class="n">regexec</span><span class="p">(</span><span class="o">&amp;</span><span class="n">reg</span><span class="p">,</span> <span class="n">lbuf</span><span class="p">,</span> <span class="n">nmatch</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">pmatch</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">==</span> <span class="n">REG_NOMATCH</span><span class="p">)</span> <span class="p">{</span>
+			<span class="k">continue</span><span class="p">;</span>
+		<span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">regerror</span><span class="p">(</span><span class="n">ret</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">reg</span><span class="p">,</span> <span class="n">ebuf</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">ebuf</span><span class="p">));</span>
+			<span class="n">printf</span><span class="p">(</span><span class="s">&quot;regexec failed: %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">ebuf</span><span class="p">);</span>
+			<span class="k">continue</span><span class="p">;</span>
+		<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>申请存放匹配结果的内存</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">nmatch</span><span class="o">+</span><span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="n">pmatch</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">rm_so</span> <span class="o">!=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+			<span class="kt">char</span> <span class="o">*</span><span class="n">temp</span><span class="p">;</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+				<span class="n">printf</span><span class="p">(</span><span class="s">&quot;%04d: %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span><span class="n">lno</span><span class="p">,</span> <span class="n">lbuf</span><span class="p">);</span>
+			<span class="n">temp</span> <span class="o">=</span> <span class="n">substr</span><span class="p">(</span><span class="n">lbuf</span><span class="p">,</span> <span class="n">pmatch</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">rm_so</span><span class="p">,</span> <span class="n">pmatch</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">rm_eo</span><span class="p">);</span>
+			<span class="n">printf</span><span class="p">(</span><span class="s">&quot;</span><span class="se">\t</span><span class="s">$%d=&#39;%s&#39;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">temp</span><span class="p">);</span>
+			<span class="n">free</span><span class="p">(</span><span class="n">temp</span><span class="p">);</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+
+	<span class="n">regfree</span><span class="p">(</span><span class="o">&amp;</span><span class="n">reg</span><span class="p">);</span>
+	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>输出匹配结果</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="pgsjc-disc-sighup.html">SIGHUP and termination of the controlling process</a>.
+      </p>
+      
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/0x0916">@0x0916</a> | <a href="mailto:w@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

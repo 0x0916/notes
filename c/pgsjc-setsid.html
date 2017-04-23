@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: Create a new session</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="pgsjc-setsid">
+      <h2><a href="./">C Code</a>: Create a new session</h2>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#define	_XOPEN_SOURCE 500</span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;fcntl.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">fork</span><span class="p">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>	<span class="c1">// Exit if parent, or on error</span>
+		<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_SUCCESS</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">if</span> <span class="p">(</span><span class="n">setsid</span><span class="p">()</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">perror</span><span class="p">(</span><span class="s">&quot;setsid&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+	<span class="p">}</span>
+
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;PID=%ld, PGID=%ld, SID=%ld</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">getpid</span><span class="p">(),</span>
+		<span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">getpgid</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">getsid</span><span class="p">(</span><span class="mi">0</span><span class="p">));</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">open</span><span class="p">(</span><span class="s">&quot;/dev/tty&quot;</span><span class="p">,</span> <span class="n">O_RDWR</span><span class="p">)</span><span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">perror</span><span class="p">(</span><span class="s">&quot;open /dev/tty&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+	<span class="p">}</span>
+	<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_SUCCESS</span><span class="p">);</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>child process</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ ps -p <span class="nv">$$</span> -o <span class="s2">&quot;pid pgid sid command&quot;</span>
+   PID   PGID    SID COMMAND
+$ gcc -o setsid setsid.c 
+$ ./setsid 
+<span class="nv">PID</span><span class="o">=</span>10358, <span class="nv">PGID</span><span class="o">=</span>10358, <span class="nv">SID</span><span class="o">=</span>10358
+open /dev/tty: No such device or address
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="pipes-fifo-seqnum.html">Using FIFOs in a single-server and multiple-client application</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="pgsjc-catch-sighup.html">Handling of SIGHUP by the shell</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/0x0916">@0x0916</a> | <a href="mailto:w@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

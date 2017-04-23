@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: Using a pipe to connect ls and wc</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="pipes-ls-wc">
+      <h2><a href="./">C Code</a>: Using a pipe to connect ls and wc</h2>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/wait.h&gt;</span><span class="cp"></span>
+
+<span class="kt">void</span> <span class="nf">errExit</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">err</span><span class="p">)</span> <span class="p">{</span>
+	<span class="n">perror</span><span class="p">(</span><span class="n">err</span><span class="p">);</span>
+	<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">int</span> <span class="n">pipefd</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">pipe</span><span class="p">(</span><span class="n">pipefd</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;pipe&quot;</span><span class="p">);</span>
+
+	<span class="k">switch</span><span class="p">(</span><span class="n">fork</span><span class="p">())</span> <span class="p">{</span>
+	<span class="k">case</span> <span class="o">-</span><span class="mi">1</span><span class="o">:</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;fork&quot;</span><span class="p">);</span>
+	<span class="k">case</span> <span class="mi">0</span><span class="o">:</span>	<span class="c1">// First child: exec ls to write to pipe</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">close</span><span class="p">(</span><span class="n">pipefd</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+			<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;close 1&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="k">if</span> <span class="p">(</span><span class="n">pipefd</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">STDOUT_FILENO</span><span class="p">)</span> <span class="p">{</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">dup2</span><span class="p">(</span><span class="n">pipefd</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">STDOUT_FILENO</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+				<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;dup2 1&quot;</span><span class="p">);</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">close</span><span class="p">(</span><span class="n">pipefd</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+				<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;close 2&quot;</span><span class="p">);</span>
+		<span class="p">}</span>
+		<span class="n">execlp</span><span class="p">(</span><span class="s">&quot;ls&quot;</span><span class="p">,</span> <span class="s">&quot;ls&quot;</span><span class="p">,</span> <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="nb">NULL</span><span class="p">);</span>	<span class="c1">// Writes to pipe</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;execlp ls&quot;</span><span class="p">);</span>
+	<span class="k">default</span><span class="o">:</span><span class="c1">// Parent falls through to create next child</span>
+		<span class="k">break</span><span class="p">;</span>
+	<span class="p">}</span>
+
+	<span class="k">switch</span><span class="p">(</span><span class="n">fork</span><span class="p">())</span> <span class="p">{</span>
+	<span class="k">case</span> <span class="o">-</span><span class="mi">1</span><span class="o">:</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;fork&quot;</span><span class="p">);</span>
+	<span class="k">case</span> <span class="mi">0</span><span class="o">:</span>	<span class="c1">// Second child: exec &quot;wc&quot; to read to pipe</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">close</span><span class="p">(</span><span class="n">pipefd</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+			<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;close 3&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Duplicate output on write end of pipe; close duplicated descriptor</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="k">if</span> <span class="p">(</span><span class="n">pipefd</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">STDIN_FILENO</span><span class="p">)</span> <span class="p">{</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">dup2</span><span class="p">(</span><span class="n">pipefd</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">STDIN_FILENO</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+				<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;dup2 2&quot;</span><span class="p">);</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">close</span><span class="p">(</span><span class="n">pipefd</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+				<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;close 4&quot;</span><span class="p">);</span>
+		<span class="p">}</span>
+		<span class="n">execlp</span><span class="p">(</span><span class="s">&quot;wc&quot;</span><span class="p">,</span> <span class="s">&quot;wc&quot;</span><span class="p">,</span> <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="nb">NULL</span><span class="p">);</span>	<span class="c1">// Reads to pipe</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;execlp wc&quot;</span><span class="p">);</span>
+	<span class="k">default</span><span class="o">:</span><span class="c1">// Parent falls through</span>
+		<span class="k">break</span><span class="p">;</span>
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Duplicate output on read end of pipe; close duplicated descriptor</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">if</span> <span class="p">(</span><span class="n">close</span><span class="p">(</span><span class="n">pipefd</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;close 5&quot;</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">close</span><span class="p">(</span><span class="n">pipefd</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;close 6&quot;</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">wait</span><span class="p">(</span><span class="nb">NULL</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;wait 1&quot;</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">wait</span><span class="p">(</span><span class="nb">NULL</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;wait 2&quot;</span><span class="p">);</span>
+
+	<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_SUCCESS</span><span class="p">);</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>Parent closes unused file descriptors for pipe, and waits for children</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -o ls-wc ls-wc.c 
+$ ./ls-wc 
+      <span class="m">2</span>       <span class="m">2</span>      14
+$ ls <span class="p">|</span> wc 
+      <span class="m">2</span>       <span class="m">2</span>      14
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="pipes-pipe-sync.html">Using a pipe to synchronize multiple process</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="pipes-popen-glob.html">Globbing filename patterns with popen()</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/0x0916">@0x0916</a> | <a href="mailto:w@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

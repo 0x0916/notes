@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: Handling of SIGHUP by the shell</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="pgsjc-catch-sighup">
+      <h2><a href="./">C Code</a>: Handling of SIGHUP by the shell</h2>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;signal.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">handler</span><span class="p">(</span><span class="kt">int</span> <span class="n">sig</span><span class="p">)</span>
+<span class="p">{}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">pid_t</span>	<span class="n">childPid</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="n">sigaction</span> <span class="n">sa</span><span class="p">;</span>
+
+	<span class="n">setbuf</span><span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span> <span class="c1">// make stdout unbuffered</span>
+
+	<span class="n">sigemptyset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sa</span><span class="p">.</span><span class="n">sa_mask</span><span class="p">);</span>
+	<span class="n">sa</span><span class="p">.</span><span class="n">sa_flags</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+	<span class="n">sa</span><span class="p">.</span><span class="n">sa_handler</span> <span class="o">=</span> <span class="n">handler</span><span class="p">;</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">sigaction</span><span class="p">(</span><span class="n">SIGHUP</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">sa</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">perror</span><span class="p">(</span><span class="s">&quot;sigaction&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="n">childPid</span> <span class="o">=</span> <span class="n">fork</span><span class="p">();</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">childPid</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">perror</span><span class="p">(</span><span class="s">&quot;fork&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">childPid</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">argc</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="k">if</span> <span class="p">(</span><span class="n">setpgid</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">perror</span><span class="p">(</span><span class="s">&quot;setpgid&quot;</span><span class="p">);</span>
+			<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+		<span class="p">}</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;PID=%ld, PPID=%ld, PGID=%ld, SID=%ld</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">getpid</span><span class="p">(),</span>
+		<span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">getppid</span><span class="p">(),</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">getpgid</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">getsid</span><span class="p">(</span><span class="mi">0</span><span class="p">));</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Move to new process group</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">alarm</span><span class="p">(</span><span class="mi">60</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>An unhandled SIGALRM ensure this process will die if nothing else terminates it</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">for</span><span class="p">(;;)</span> <span class="p">{</span>
+		<span class="n">pause</span><span class="p">();</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;%ld: caught signal SIGHUP</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">getpid</span><span class="p">());</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>wait for signals</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -o cache_sighup cache_sighup.c </pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ <span class="nb">echo</span> <span class="nv">$$</span>
+14617</pre></div>
+          </td>
+	  <td class="docs">
+            <p>PID of shell is ID of session</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ ./cache_sighup &gt; samegroup.log 2&gt;<span class="p">&amp;</span><span class="m">1</span> <span class="p">&amp;</span>
+<span class="o">[</span>1<span class="o">]</span> 14682</pre></div>
+          </td>
+	  <td class="docs">
+            <p>create two processes that remain in the process group created by the shell</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ ./cache_sighup x  &gt; diffgroup.log 2&gt;<span class="p">&amp;</span><span class="m">1</span> <span class="p">&amp;</span>
+<span class="o">[</span>2<span class="o">]</span> 14684</pre></div>
+          </td>
+	  <td class="docs">
+            <p>create a child that places itself in a separate process group</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ cat samegroup.log 
+<span class="nv">PID</span><span class="o">=</span>14682, <span class="nv">PPID</span><span class="o">=</span>14617, <span class="nv">PGID</span><span class="o">=</span>14682, <span class="nv">SID</span><span class="o">=</span>14617	<span class="c1"># Parent</span>
+<span class="nv">PID</span><span class="o">=</span>14683, <span class="nv">PPID</span><span class="o">=</span>14682, <span class="nv">PGID</span><span class="o">=</span>14682, <span class="nv">SID</span><span class="o">=</span>14617	<span class="c1"># Child</span>
+14682: caught signal SIGHUP
+14683: caught signal SIGHUP
+$ cat diffgroup.log 
+<span class="nv">PID</span><span class="o">=</span>14684, <span class="nv">PPID</span><span class="o">=</span>14617, <span class="nv">PGID</span><span class="o">=</span>14684, <span class="nv">SID</span><span class="o">=</span>14617	<span class="c1"># Parent</span>
+<span class="nv">PID</span><span class="o">=</span>14685, <span class="nv">PPID</span><span class="o">=</span>14684, <span class="nv">PGID</span><span class="o">=</span>14685, <span class="nv">SID</span><span class="o">=</span>14617	<span class="c1"># Child</span>
+14684: caught signal SIGHUP			<span class="c1"># Parent was signaled, but not child</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>NOTE: close the terminal windows and open another</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="pgsjc-setsid.html">Create a new session</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="pgsjc-disc-sighup.html">SIGHUP and termination of the controlling process</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/0x0916">@0x0916</a> | <a href="mailto:w@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: Using FIFOs in a single-server and multiple-client application</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="pipes-fifo-seqnum">
+      <h2><a href="./">C Code</a>: Using FIFOs in a single-server and multiple-client application</h2>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;sys/types.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/stat.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;fcntl.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;errno.h&gt;</span><span class="cp"></span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#define	SERVER_FIFO  &quot;/tmp/seqnum_sv&quot;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Well-known name for server&rsquo;s FIFO</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#define	CLIENT_FIFO_TEMPLATE	&quot;/tmp/seqnum_cl.%ld&quot;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Template for building client FIFO name</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#define	CLIENT_FIFO_NAME_LEN	(sizeof(CLIENT_FIFO_TEMPLATE) + 20)</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Space required for client FIFO pathname</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="k">struct</span> <span class="n">request</span> <span class="p">{</span>
+	<span class="kt">pid_t</span>	<span class="n">pid</span><span class="p">;</span>	<span class="c1">// PID of client</span>
+	<span class="kt">int</span> <span class="n">seqLen</span><span class="p">;</span>	<span class="c1">// Length of desired sequence</span>
+<span class="p">};</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Request: client &ndash;&gt; server</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="k">struct</span> <span class="n">response</span> <span class="p">{</span>
+	<span class="kt">int</span>	<span class="n">seqNum</span><span class="p">;</span>	<span class="c1">// Start of sequence</span>
+<span class="p">};</span>
+
+<span class="kt">void</span> <span class="nf">errExit</span><span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">err</span><span class="p">)</span> <span class="p">{</span>
+	<span class="n">perror</span><span class="p">(</span><span class="n">err</span><span class="p">);</span>
+	<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>Response: server &ndash;&gt; client</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&quot;fifo_seqnum.h&quot;</span><span class="cp"></span>
+
+<span class="k">static</span> <span class="kt">char</span> <span class="n">clientFifo</span><span class="p">[</span><span class="n">CLIENT_FIFO_NAME_LEN</span><span class="p">];</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">removeFifo</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span> <span class="p">{</span>
+	<span class="n">unlink</span><span class="p">(</span><span class="n">clientFifo</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">int</span> <span class="n">serverFd</span><span class="p">,</span> <span class="n">clientFd</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="n">request</span> <span class="n">req</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="n">response</span> <span class="n">resp</span><span class="p">;</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="n">strcmp</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s">&quot;--help&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">fprintf</span><span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="s">&quot;%s [seq-len...]</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_SUCCESS</span><span class="p">);</span>
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Invoked on exit to delete client FIFO</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">umask</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+	<span class="n">snprintf</span><span class="p">(</span><span class="n">clientFifo</span><span class="p">,</span> <span class="n">CLIENT_FIFO_NAME_LEN</span><span class="p">,</span> <span class="n">CLIENT_FIFO_TEMPLATE</span><span class="p">,</span>
+		<span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">getpid</span><span class="p">());</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">mkfifo</span><span class="p">(</span><span class="n">clientFifo</span><span class="p">,</span><span class="n">S_IRUSR</span> <span class="o">|</span> <span class="n">S_IWUSR</span> <span class="o">|</span> <span class="n">S_IWGRP</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span>
+			<span class="o">&amp;&amp;</span> <span class="n">errno</span> <span class="o">!=</span> <span class="n">EEXIST</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;mkfifo&quot;</span><span class="p">);</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">atexit</span><span class="p">(</span><span class="n">removeFifo</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;atexit&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Create our FIFO (before sending request, to avoid a race)</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">req</span><span class="p">.</span><span class="n">pid</span> <span class="o">=</span> <span class="n">getpid</span><span class="p">();</span>
+	<span class="n">req</span><span class="p">.</span><span class="n">seqLen</span> <span class="o">=</span> <span class="p">(</span><span class="n">argc</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">?</span> <span class="n">strtol</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span> <span class="o">:</span> <span class="mi">1</span><span class="p">;</span>
+
+	<span class="n">serverFd</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="n">SERVER_FIFO</span><span class="p">,</span> <span class="n">O_WRONLY</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">serverFd</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;open&quot;</span><span class="p">);</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">write</span><span class="p">(</span><span class="n">serverFd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">req</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">request</span><span class="p">))</span> <span class="o">!=</span>
+			<span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">request</span><span class="p">))</span> <span class="p">{</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;can not write to server&quot;</span><span class="p">);</span>
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>construct request message, open server FIFO, and send request</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">clientFd</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="n">clientFifo</span><span class="p">,</span> <span class="n">O_RDONLY</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">clientFd</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;open&quot;</span><span class="p">);</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">read</span><span class="p">(</span><span class="n">clientFd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">resp</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">response</span><span class="p">))</span> <span class="o">!=</span>
+			<span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">response</span><span class="p">))</span> <span class="p">{</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;can not read form server&quot;</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;%d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">resp</span><span class="p">.</span><span class="n">seqNum</span><span class="p">);;</span>
+	<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_SUCCESS</span><span class="p">);</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>Open our FIFO, read and display response</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;signal.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&quot;fifo_seqnum.h&quot;</span><span class="cp"></span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">int</span> <span class="n">serverFd</span><span class="p">,</span> <span class="n">dummyFd</span><span class="p">,</span> <span class="n">clientFd</span><span class="p">;</span>
+	<span class="kt">char</span> <span class="n">clientFifo</span><span class="p">[</span><span class="n">CLIENT_FIFO_NAME_LEN</span><span class="p">];</span>
+	<span class="k">struct</span> <span class="n">request</span> <span class="n">req</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="n">response</span> <span class="n">resp</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">seqNum</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>	<span class="c1">// This is our &quot;service&quot;</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">umask</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>		<span class="c1">// So we get the permissions we want</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">mkfifo</span><span class="p">(</span><span class="n">SERVER_FIFO</span><span class="p">,</span> <span class="n">S_IRUSR</span> <span class="o">|</span> <span class="n">S_IWUSR</span> <span class="o">|</span> <span class="n">S_IWGRP</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="n">errno</span> <span class="o">!=</span> <span class="n">EEXIST</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;mkfifo&quot;</span><span class="p">);</span>
+
+	<span class="n">serverFd</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="n">SERVER_FIFO</span><span class="p">,</span> <span class="n">O_RDONLY</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">serverFd</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;open&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Create well-known FIFO, and open it for reading</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">dummyFd</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="n">SERVER_FIFO</span><span class="p">,</span> <span class="n">O_WRONLY</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">dummyFd</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;open&quot;</span><span class="p">);</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">signal</span><span class="p">(</span><span class="n">SIGPIPE</span><span class="p">,</span> <span class="n">SIG_IGN</span><span class="p">)</span> <span class="o">==</span> <span class="n">SIG_ERR</span><span class="p">)</span>
+		<span class="n">errExit</span><span class="p">(</span><span class="s">&quot;signal&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Open an extra write descriptor, so that we never see EOF</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">for</span> <span class="p">(;;)</span> <span class="p">{</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">read</span><span class="p">(</span><span class="n">serverFd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">req</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">request</span><span class="p">))</span>
+				<span class="o">!=</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">request</span><span class="p">))</span> <span class="p">{</span>
+			<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;Error reading request; discarding</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+			<span class="k">continue</span><span class="p">;</span>
+		<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Read requests and send response</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="n">snprintf</span><span class="p">(</span><span class="n">clientFifo</span><span class="p">,</span> <span class="n">CLIENT_FIFO_NAME_LEN</span><span class="p">,</span> <span class="n">CLIENT_FIFO_TEMPLATE</span><span class="p">,</span>
+			<span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">req</span><span class="p">.</span><span class="n">pid</span><span class="p">);</span>
+		<span class="n">clientFd</span> <span class="o">=</span> <span class="n">open</span><span class="p">(</span><span class="n">clientFifo</span><span class="p">,</span> <span class="n">O_WRONLY</span><span class="p">);</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">clientFd</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>	<span class="c1">// open failed, give up the client</span>
+			<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;open %s failed</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">clientFifo</span><span class="p">);</span>
+			<span class="k">continue</span><span class="p">;</span>
+		<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Open client FIFO (previously created by client</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>		<span class="n">resp</span><span class="p">.</span><span class="n">seqNum</span> <span class="o">=</span> <span class="n">seqNum</span><span class="p">;</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">write</span><span class="p">(</span><span class="n">clientFd</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">resp</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">response</span><span class="p">))</span>
+				<span class="o">!=</span> <span class="k">sizeof</span><span class="p">(</span><span class="k">struct</span> <span class="n">response</span><span class="p">))</span> <span class="p">{</span>
+			<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;Error writing to FIFO %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">clientFifo</span><span class="p">);</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">close</span><span class="p">(</span><span class="n">clientFd</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+				<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;close</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="p">}</span>
+
+		<span class="n">seqNum</span> <span class="o">+=</span> <span class="n">req</span><span class="p">.</span><span class="n">seqLen</span><span class="p">;</span>		<span class="c1">// Update our sequence number</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>Send response and close FIFO</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -o fifo_seqnum_server fifo_seqnum_server.c 
+$ gcc -o fifo_seqnum_client fifo_seqnum_client.c 
+$ ./fifo_seqnum_server <span class="p">&amp;</span>
+$ ./fifo_seqnum_server <span class="p">&amp;</span>
+<span class="o">[</span>1<span class="o">]</span> 6952
+$ ./fifo_seqnum_client 3
+0
+$ ./fifo_seqnum_client 2
+3
+$ ./fifo_seqnum_client 
+5
+$ ./fifo_seqnum_client 6
+6
+$ ./fifo_seqnum_client 
+12
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="pipes-popen-glob.html">Globbing filename patterns with popen()</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="pgsjc-setsid.html">Create a new session</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/0x0916">@0x0916</a> | <a href="mailto:w@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

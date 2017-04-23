@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: initialize the supplementary group access list</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="initgroups">
+      <h2><a href="./">C Code</a>: initialize the supplementary group access list</h2>
+	
+      	<div class="summary">
+		<h2>initgroups</h2>
+
+<p><code>initgroups</code>函数的原型为：</p>
+
+<pre><code>	int initgroups(const char *user, gid_t group);
+</code></pre>
+
+<p>其作用是初始化当前进程的可访问组列表为用户<code>user</code>为成员的所有组，此外参数<code>group</code>指定的组也会被添加到该列表中。</p>
+
+      	</div>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;grp.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/types.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">int</span> <span class="n">n</span><span class="p">,</span><span class="n">i</span><span class="p">;</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;Usage: %s &lt;user&gt;</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+		<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">if</span> <span class="p">(</span><span class="n">initgroups</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="mi">1234</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">perror</span><span class="p">(</span><span class="s">&quot;initgroups&quot;</span><span class="p">);</span>
+		<span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+	<span class="p">}</span>
+
+	<span class="kt">gid_t</span> <span class="n">grouplist</span><span class="p">[</span><span class="mi">16</span><span class="p">];</span>
+	<span class="n">n</span> <span class="o">=</span> <span class="n">getgroups</span><span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="n">grouplist</span><span class="p">);</span>
+	<span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;(%d) group ID: %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">grouplist</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+	<span class="p">}</span>
+
+	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>initialize the group access list and using groups of which user is a memeber.</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ cat /etc/group	<span class="c1"># 查看group数据库</span>
+root:x:0:
+adm:x:4:syslog
+docker:x:999:
+vboxusers:x:112:
+kvm:x:113:
+ssl-cert:x:114:
+scanner:x:115:
+shellinabox:x:118:
+mongodb:x:119:mongodb
+lxc-dnsmasq:x:120:</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ ./initgroups  mongodb  
+<span class="o">(</span>0<span class="o">)</span> group ID: 119
+<span class="o">(</span>1<span class="o">)</span> group ID: 1234</pre></div>
+          </td>
+	  <td class="docs">
+            <p>设置当前进程的组列表为mongodb用户所在的组</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ ./initgroups  syslog
+<span class="o">(</span>0<span class="o">)</span> group ID: 4
+<span class="o">(</span>1<span class="o">)</span> group ID: 1234
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>设置当前进程的组列表为syslog用户所在的组</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="setgroups-getgroups.html">get/set list of supplementary group IDs</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="pipes-simple-pipe.html">using a pipe to communicate between a parent and a child process</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/0x0916">@0x0916</a> | <a href="mailto:w@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

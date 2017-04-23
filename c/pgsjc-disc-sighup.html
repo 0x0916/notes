@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: SIGHUP and termination of the controlling process</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="pgsjc-disc-sighup">
+      <h2><a href="./">C Code</a>: SIGHUP and termination of the controlling process</h2>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#define _GNU_SOURCE  </span><span class="c1">// get strsignal() declaration from &lt;string.h&gt;</span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;signal.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp"></span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="k">static</span> <span class="kt">void</span> <span class="nf">handler</span><span class="p">(</span><span class="kt">int</span> <span class="n">sig</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;PID %ld: caught signal %2d (%s)</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">getpid</span><span class="p">(),</span>
+		<span class="n">sig</span><span class="p">,</span> <span class="n">strsignal</span><span class="p">(</span><span class="n">sig</span><span class="p">));</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">pid_t</span>	<span class="n">childPid</span><span class="p">,</span> <span class="n">parentPid</span><span class="p">;</span>
+	<span class="kt">int</span> <span class="n">j</span><span class="p">;</span>
+	<span class="k">struct</span> <span class="n">sigaction</span> <span class="n">sa</span><span class="p">;</span>
+
+	<span class="n">setbuf</span><span class="p">(</span><span class="n">stdout</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span> <span class="c1">// make stdout unbuffered</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">&lt;</span> <span class="mi">2</span> <span class="o">||</span> <span class="n">strcmp</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s">&quot;--help&quot;</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;%s {d|s}... [&gt; sig.log 2&gt;&amp;1 ]</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="n">parentPid</span> <span class="o">=</span> <span class="n">getpid</span><span class="p">();</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;PID of parent process is :	%ld</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">parentPid</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;Foreground process group ID is: %ld</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> 
+		<span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">tcgetpgrp</span><span class="p">(</span><span class="n">STDIN_FILENO</span><span class="p">));</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Handler for SIGHUP</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">for</span> <span class="p">(</span><span class="n">j</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">argc</span><span class="p">;</span> <span class="n">j</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">childPid</span> <span class="o">=</span> <span class="n">fork</span><span class="p">();</span>
+		<span class="k">if</span> <span class="p">(</span><span class="n">childPid</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+			<span class="n">perror</span><span class="p">(</span><span class="s">&quot;fork&quot;</span><span class="p">);</span>
+			<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+		<span class="p">}</span>
+
+		<span class="k">if</span> <span class="p">(</span><span class="n">childPid</span> <span class="o">==</span> <span class="mi">0</span><span class="p">){</span>	<span class="c1">// child</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="sc">&#39;d&#39;</span><span class="p">)</span>
+				<span class="k">if</span> <span class="p">(</span><span class="n">setpgid</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+					<span class="n">perror</span><span class="p">(</span><span class="s">&quot;setpgid&quot;</span><span class="p">);</span>
+					<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+				<span class="p">}</span>
+			<span class="n">sigemptyset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">sa</span><span class="p">.</span><span class="n">sa_mask</span><span class="p">);</span>
+			<span class="n">sa</span><span class="p">.</span><span class="n">sa_flags</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+			<span class="n">sa</span><span class="p">.</span><span class="n">sa_handler</span> <span class="o">=</span> <span class="n">handler</span><span class="p">;</span>
+			<span class="k">if</span> <span class="p">(</span><span class="n">sigaction</span><span class="p">(</span><span class="n">SIGHUP</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">sa</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+				<span class="n">perror</span><span class="p">(</span><span class="s">&quot;sigaction&quot;</span><span class="p">);</span>
+				<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+			<span class="p">}</span>
+			<span class="k">break</span><span class="p">;</span>	<span class="c1">// child exits loop</span>
+		<span class="p">}</span>
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Create child process</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre></pre></div>
+          </td>
+	  <td class="docs">
+            <p>All processes fall throuth to here</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">alarm</span><span class="p">(</span><span class="mi">60</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;PID=%ld, PPID=%ld</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">getpid</span><span class="p">(),</span> <span class="p">(</span><span class="kt">long</span><span class="p">)</span><span class="n">getppid</span><span class="p">());</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>An unhandled SIGALRM ensure this process will die if nothing else terminates it</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">for</span><span class="p">(;;)</span> <span class="p">{</span>
+		<span class="n">pause</span><span class="p">();</span>
+	<span class="p">}</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>wait for signals</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -o disc_sighup disc_sighup.c</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ <span class="nb">exec</span> ./disc_sighup d s s &gt; sig.log 2&gt;<span class="p">&amp;</span>1</pre></div>
+          </td>
+	  <td class="docs">
+            <p>the <code>exec</code> command is a shell built-in command that causes the shell to do an exec()
+replacing itself with the named program. since the shell was the controlling process
+for the terminal, our program is now the controlling process and will receive
+<code>SIGHUP</code> when the terminal window is closed.</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ cat sig.log 
+PID of parent process is :	14555
+Foreground process group ID is: 14555
+<span class="nv">PID</span><span class="o">=</span>14965, <span class="nv">PPID</span><span class="o">=</span>14555		<span class="c1"># first child in different process group</span>
+<span class="nv">PID</span><span class="o">=</span>14555, <span class="nv">PPID</span><span class="o">=</span>14451		<span class="c1"># This is the parent process</span>
+<span class="nv">PID</span><span class="o">=</span>14966, <span class="nv">PPID</span><span class="o">=</span>14555		<span class="c1"># remaining children are in the same process group as parent</span>
+<span class="nv">PID</span><span class="o">=</span>14967, <span class="nv">PPID</span><span class="o">=</span>14555
+PID 14966: caught signal  <span class="m">1</span> <span class="o">(</span>Hangup<span class="o">)</span>
+PID 14967: caught signal  <span class="m">1</span> <span class="o">(</span>Hangup<span class="o">)</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>Note: close the terminal window, and open another</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="pgsjc-catch-sighup.html">Handling of SIGHUP by the shell</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="regular-expression-matching.html">正则表达式使用方法</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/0x0916">@0x0916</a> | <a href="mailto:w@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>
