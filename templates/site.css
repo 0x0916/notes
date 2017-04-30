@@ -26,9 +26,7 @@ display: block;
 body {
 line-height: 1;
 }
-ol, ul {
-list-style: none;
-}
+ol, ul {list-style: inherit;margin-left: 40px;}
 blockquote, q {
 quotes: none;
 }
@@ -59,10 +57,14 @@ h2 {
     font-size: 32px;
     line-height: 40px;
     margin-top: 40px;
+    margin-bottom: 10px;
     font-family: sans-serif;
 }
 h2 a {
     text-decoration: none;
+}
+h2 code, h2 pre {
+    font-size: inherit;
 }
 .summary {
 line-height: 1.8em;
@@ -177,7 +179,7 @@ pre>code {
    background: #f4f4f4;
    border-radius: 5px;
 }
-p code {
+code {
 border: 1px solid #ededed;
 display: inline-block;
 padding: 0 8px;
