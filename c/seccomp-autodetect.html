@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: 检测系统是否支持seccomp特性</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="seccomp-autodetect">
+      <h2><a href="./">C Code</a>: 检测系统是否支持seccomp特性</h2>
+	
+      	<div class="summary">
+		<h2>检测系统是否支持<code>seccomp</code>特性</h2>
+
+<p>一般来说，内核对<code>seccomp</code>的支持有以下三种情况：</p>
+
+<ul>
+<li>不支持seccomp</li>
+<li>仅支持原始的模式（mode 1）</li>
+<li>支持secommp filtering（bpf）</li>
+</ul>
+
+<p>如果内核不支持seccomp时，函数<code>prctl(PR_GET_SECCOMP,...);</code>会返回ENOSYS(2.6.23　之前的内核) 或者EINVAL(没有编译进内核)。</p>
+
+<p>在2.6.23和3.4之间的内核中，某些架构下可能未实现<code>filtering</code>特性，我们可以通过函数<code>prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, NULL, 0, 0);</code>进行检测，如果返回<code>EINVAL</code>，说明仅支持原始模式，返回<code>EFAULT</code>说明支持<code>seccomp filtering</code>。</p>
+
+<p>完整的检测代码如下：</p>
+
+      	</div>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;errno.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/prctl.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;string.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;linux/seccomp.h&gt;</span><span class="cp"></span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+	<span class="kt">int</span> <span class="n">ret</span><span class="p">;</span>
+
+	<span class="n">ret</span> <span class="o">=</span> <span class="n">prctl</span><span class="p">(</span><span class="n">PR_GET_SECCOMP</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="k">switch</span> <span class="p">(</span><span class="n">errno</span><span class="p">)</span> <span class="p">{</span>
+		<span class="k">case</span> <span class="nl">ENOSYS</span><span class="p">:</span>
+			<span class="n">printf</span><span class="p">(</span><span class="s">&quot;seccomp not available: pre-2.6.23</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+			<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+		<span class="k">case</span> <span class="nl">EINVAL</span><span class="p">:</span>
+			<span class="n">printf</span><span class="p">(</span><span class="s">&quot;seccomp not available: not built in</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+			<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+		<span class="k">default</span><span class="o">:</span>
+			<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;unkonwn PR_GET_SECCOMP error: %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span>
+			<span class="n">strerror</span><span class="p">(</span><span class="n">errno</span><span class="p">));</span>
+			<span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;seccomp available</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+
+	<span class="n">ret</span> <span class="o">=</span> <span class="n">prctl</span><span class="p">(</span><span class="n">PR_SET_SECCOMP</span><span class="p">,</span> <span class="n">SECCOMP_MODE_FILTER</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ret</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="k">switch</span> <span class="p">(</span><span class="n">errno</span><span class="p">)</span> <span class="p">{</span>
+		<span class="k">case</span> <span class="nl">EINVAL</span><span class="p">:</span>
+			<span class="n">printf</span><span class="p">(</span><span class="s">&quot;seccomp filter not available</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+			<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+		<span class="k">case</span> <span class="nl">EFAULT</span><span class="p">:</span>
+			<span class="n">printf</span><span class="p">(</span><span class="s">&quot;seccomp filter available</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+			<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+		<span class="k">default</span><span class="o">:</span>
+			<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;unkonwn PR_SET_SECCOMP error: %s</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span>
+			<span class="n">strerror</span><span class="p">(</span><span class="n">errno</span><span class="p">));</span>
+			<span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+		<span class="p">}</span>
+	<span class="p">}</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;PR_SET_SECCOMP unexpectedly succeeded?!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+	<span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -o autodetect autodetect.c
+$ ./autodetect
+seccomp available
+seccomp filter available
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="regular-expression-matching.html">正则表达式使用方法</a>.
+      </p>
+      
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/0x0916">@0x0916</a> | <a href="mailto:w@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>
