@@ -199,6 +199,45 @@ func parseAndRenderSections(sourcePath string) []*Section {
 	return sections
 }
 
+func cleanSourcePaths(raw []string) []string {
+	var result []string
+	var files []string
+	var ignoreFile string
+
+	for _, file := range raw {
+		if strings.HasSuffix(file, "ignore") {
+			ignoreFile = file
+		} else {
+			files = append(files, file)
+		}
+	}
+
+	if ignoreFile == "" {
+		return files
+	}
+
+	ignorePattern := readLines(ignoreFile)
+	var skip bool
+	for _, file := range files {
+		skip = false
+		for _, pat := range ignorePattern {
+			if pat == "" {
+				continue
+			}
+			if strings.HasSuffix(file, pat) {
+				logrus.Debugf("skip file %s ...", file)
+				skip = true
+				break
+			}
+		}
+		if !skip {
+			result = append(result, file)
+		}
+	}
+
+	return result
+}
+
 func ParseCodeExamples(index, lang string) []*CodeExample {
 	exampleNames := readLines(index)
 	examples := make([]*CodeExample, 0)
@@ -222,10 +261,12 @@ func ParseCodeExamples(index, lang string) []*CodeExample {
 			exampleID = dashPat.ReplaceAllString(exampleID, "-")
 			example.ID = exampleID
 			example.Sections = make([][]*Section, 0)
-			sourcePaths := mustGlob("code/" + lang + "/" + exampleID + "/*")
+			rawSourcePaths := mustGlob("code/" + lang + "/" + exampleID + "/*")
+			sourcePaths := cleanSourcePaths(rawSourcePaths)
 			for _, sourcePath := range sourcePaths {
 				logrus.Debugf("process file %s ...", sourcePath)
-				if strings.HasSuffix(sourcePath, ".README.MD") {
+				if strings.HasSuffix(sourcePath, ".README.MD") ||
+					strings.HasSuffix(sourcePath, ".md") {
 					example.SummaryHTML = markdownSummary(sourcePath)
 				} else {
 					sourceSection := parseAndRenderSections(sourcePath)

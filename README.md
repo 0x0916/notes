@@ -1,5 +1,5 @@
-code-examples
-========
+notes
+=====
 
 A microservice that does micro things.
 
@@ -10,7 +10,7 @@ A microservice that does micro things.
 
 ## Running
 
-`./bin/code-examples`
+`./bin/notes`
 
 ## License
 

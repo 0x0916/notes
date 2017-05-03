@@ -7,7 +7,7 @@ import (
 	"github.com/Sirupsen/logrus"
 	"github.com/urfave/cli"
 
-	"github.com/datawolf/code-examples/generate"
+	"github.com/0x0916/notes/generate"
 )
 
 var VERSION = "v0.0.0-dev"
@@ -65,7 +65,7 @@ func generateWebsite(index, lang string) {
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "code-examples"
+	app.Name = "notes"
 	app.Version = VERSION
 	app.Usage = "You need help!"
 	app.Flags = []cli.Flag{

@@ -10,9 +10,9 @@ SUFFIX=""
 cd $(dirname $0)/../package
 
 TAG=${TAG:-${VERSION}${SUFFIX}}
-REPO=${REPO:-datawolf}
+REPO=${REPO:-0x0916}
 
-cp ../bin/code-examples .
-docker build -t ${REPO}/code-examples:${TAG} .
+cp ../bin/notes .
+docker build -t ${REPO}/notes:${TAG} .
 
-echo Built ${REPO}/code-examples:${TAG}
+echo Built ${REPO}/notes:${TAG}
