@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: 使用简单的seccomp filters</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="seccomp-example">
+      <h2><a href="./">C Code</a>: 使用简单的seccomp filters</h2>
+	
+      	<div class="summary">
+		<h2>介绍</h2>
+
+<p><code>Seccomp</code>(secure computing)是Linux kernel （自从2.6.23版本之后）所支持的一种简洁的<code>sandboxing</code>机制。它能使一个进程进入到一种<code>安全</code>运行模式，该模式下的进程只能调用4种系统调用（system calls），即<code>read()</code>, <code>write()</code>, <code>exit()</code>和<code>sigreturn()</code>，否则进程便会被终止。</p>
+
+<p>从Linux 3.5 开始，内核支持了特性<code>seccomp filter</code>（or <code>mode 2 seccomp</code>）。完整的<code>seccomp filter</code>特性的文档请参阅<a href="https://www.kernel.org/doc/Documentation/prctl/seccomp_filter.txt">这里</a>。</p>
+
+<h2>示例</h2>
+
+<p><a href="https://github.com/0x0916/notes/tree/master/code/c/seccomp-example/seccomp-step-1">首先</a>,我们使用一个简单的程序来说明seccomp filter是否可以按照预期进行工作。该程序从标准输入读取用户的输入，并输出到标准输出中，在退出之前，它会调用函数<code>exit</code>。</p>
+
+<pre><code class="language-c">#define _GNU_SOURCE
+#include &lt;stdio.h&gt;
+#include &lt;stddef.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;stdlib.h&gt;
+
+#include &quot;config.h&quot;
+
+
+int main(int argc, char **argv) {
+	char buf[1024];
+
+	printf(&quot;Type stuff here: &quot;);
+	fflush(NULL);
+	buf[0] = '\0';
+	fgets(buf, sizeof(buf), stdin);
+	printf(&quot;You typed: %s&quot;, buf);
+
+	printf(&quot;And now we fork, which should do quite opposite...\n&quot;);
+	fflush(NULL);
+	sleep(1);
+
+	fork();
+
+	printf(&quot;You should not see this, because I am dead\n&quot;);
+
+	return 0;
+}
+</code></pre>
+
+<p>编译运行，输出如下</p>
+
+<pre><code class="language-bash"># autoconf
+# autoheader 
+# ./configure 
+checking for gcc... gcc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether we are using the GNU C compiler... yes
+checking whether gcc accepts -g... yes
+checking for gcc option to accept ISO C89... none needed
+configure: creating ./config.status
+config.status: creating config.h
+# make
+gcc -Wall   -c -o example.o example.c
+gcc   example.o   -o example
+# ./example
+Type stuff here: hello seccomp
+You typed: hello seccomp
+And now we fork, which should do quite opposite...
+You should not see this, because I am dead
+You should not see this, because I am dead
+</code></pre>
+
+<p>该程序中所有的系统调用都能够正常工作。</p>
+
+<h2>添加 <code>seccomp filtering</code></h2>
+
+<h2>添加 <code>syscall reporting</code></h2>
+
+      	</div>
+	
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="seccomp-autodetect.html">检测系统是否支持seccomp特性</a>.
+      </p>
+      
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/0x0916">@0x0916</a> | <a href="mailto:w@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>
