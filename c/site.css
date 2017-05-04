@@ -51,7 +51,9 @@ em {
     font-style: italic;
 }
 a, a:visited {
-    color: #261a3b;
+    color: #a52a2a;
+    text-decoration: none;
+    border-bottom: 1px dotted #a52a2a;
 }
 h2 {
     font-size: 32px;
