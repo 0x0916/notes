@@ -25,6 +25,11 @@ static int install_syscall_filter(void)
 		ALLOW_SYSCALL(read),
 		ALLOW_SYSCALL(write),
 		/* Add more syscalls here */
+		ALLOW_SYSCALL(fstat),
+		ALLOW_SYSCALL(brk),
+		ALLOW_SYSCALL(nanosleep),
+		ALLOW_SYSCALL(clone),
+
 		KILL_PROCESS,
 	};
 	struct sock_fprog prog = {
