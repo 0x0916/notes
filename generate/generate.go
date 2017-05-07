@@ -202,6 +202,7 @@ func parseAndRenderSections(sourcePath string) []*Section {
 func cleanSourcePaths(raw []string) []string {
 	var result []string
 	var files []string
+	var ignorePattern []string
 	var ignoreFile string
 
 	for _, file := range raw {
@@ -213,10 +214,11 @@ func cleanSourcePaths(raw []string) []string {
 	}
 
 	if ignoreFile == "" {
-		return files
+		ignorePattern = append(ignorePattern, "a.out")
+	} else {
+		ignorePattern = readLines(ignoreFile)
 	}
 
-	ignorePattern := readLines(ignoreFile)
 	var skip bool
 	for _, file := range files {
 		skip = false
