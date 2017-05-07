@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: 03-Linux系统调用seccomp</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="seccomp-api">
+      <h2><a href="./">C Code</a>: 03-Linux系统调用seccomp</h2>
+	
+      	<div class="summary">
+		<p>linux 系统调用<code>seccomp</code>用来管理调用进程的<code>Secure Computing state</code>。该API是在3.17的内核上添加的。</p>
+
+<p>其原型如下：</p>
+
+<pre><code class="language-c">#include &lt;linux/seccomp.h&gt;
+#include &lt;linux/filter.h&gt;
+#include &lt;linux/audit.h&gt;
+#include &lt;linux/signal.h&gt;
+#include &lt;sys/ptrace.h&gt;
+
+int seccomp(unsigned int operation, unsigned int flags, void *args);
+</code></pre>
+
+<p>目前，在Linux系统上，<code>operation</code> 支持如下的值。</p>
+
+<ul>
+<li><code>SECCOMP_SET_MODE_STRICT</code></li>
+</ul>
+
+<p>如果<code>operation</code>的值为<code>SECCOMP_SET_MODE_STRICT</code>时，<code>flags</code> 必须是0，<code>args</code>必须是NULL。此时，函数的执行效果等同于</p>
+
+<pre><code class="language-c">prctl(PR_SET_SECCOMP, SECCOMP_MODE_STRICT);
+</code></pre>
+
+<p>该模式下，只有<code>read</code>,<code>write</code>,<code>_exit</code>和<code>sigreturn</code>四个系统调用可以使用，其他系统调用将会触发信号<code>SIGKILL</code>。</p>
+
+<ul>
+<li><code>SECCOMP_SET_MODE_FILTER</code></li>
+</ul>
+
+<p>该模式下，可以通过参数<code>args</code>传递一个指向<code>Berkeley Packet Filter (BPF)</code>的指针。其数据结构为<code>struct sock_fprog</code>,它可以哟过来过滤任意的系统调用和系统调用参数。</p>
+
+<p>使用<code>SECCOMP_SET_MODE_FILTER</code>时，调用要么需要具有权能<code>CAP_SYS_ADMIN</code>,要么进程需要设置<code>no_new_privs</code>位。如果<code>no_new_privs</code>位没有设置，我们可以通过如下的函数设置：</p>
+
+<pre><code class="language-c">prctl(PR_SET_NO_NEW_PRIVS, 1);
+</code></pre>
+
+<p>当<code>flags</code>为0时，函数的执行效果等同于</p>
+
+<pre><code class="language-c">prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, args);
+</code></pre>
+
+<p>关于seccomp更详细的细节介绍，请参阅<a href="http://www.man7.org/linux/man-pages/man2/seccomp.2.html">man seccomp</a>。</p>
+
+<p>下面的示例程序，可以根据用户的输入，禁用某个系统调用。</p>
+
+      	</div>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;errno.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;linux/audit.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;linux/filter.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;linux/seccomp.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;linux/unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stddef.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdlib.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;sys/prctl.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+
+<span class="k">static</span> <span class="kt">int</span> <span class="nf">install_filter</span><span class="p">(</span><span class="kt">int</span> <span class="n">nr</span><span class="p">,</span> <span class="kt">int</span> <span class="n">arch</span><span class="p">,</span> <span class="kt">int</span> <span class="n">error</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="k">struct</span> <span class="n">sock_filter</span> <span class="n">filter</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+		<span class="n">BPF_STMT</span><span class="p">(</span><span class="n">BPF_LD</span><span class="o">+</span><span class="n">BPF_W</span><span class="o">+</span><span class="n">BPF_ABS</span><span class="p">,</span>
+			 <span class="p">(</span><span class="n">offsetof</span><span class="p">(</span><span class="k">struct</span> <span class="n">seccomp_data</span><span class="p">,</span> <span class="n">arch</span><span class="p">))),</span>
+		<span class="n">BPF_JUMP</span><span class="p">(</span><span class="n">BPF_JMP</span><span class="o">+</span><span class="n">BPF_JEQ</span><span class="o">+</span><span class="n">BPF_K</span><span class="p">,</span> <span class="n">arch</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span>
+		<span class="n">BPF_STMT</span><span class="p">(</span><span class="n">BPF_LD</span><span class="o">+</span><span class="n">BPF_W</span><span class="o">+</span><span class="n">BPF_ABS</span><span class="p">,</span>
+			 <span class="p">(</span><span class="n">offsetof</span><span class="p">(</span><span class="k">struct</span> <span class="n">seccomp_data</span><span class="p">,</span> <span class="n">nr</span><span class="p">))),</span>
+		<span class="n">BPF_JUMP</span><span class="p">(</span><span class="n">BPF_JMP</span><span class="o">+</span><span class="n">BPF_JEQ</span><span class="o">+</span><span class="n">BPF_K</span><span class="p">,</span> <span class="n">nr</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+		<span class="n">BPF_STMT</span><span class="p">(</span><span class="n">BPF_RET</span><span class="o">+</span><span class="n">BPF_K</span><span class="p">,</span>
+			 <span class="n">SECCOMP_RET_ERRNO</span><span class="o">|</span><span class="p">(</span><span class="n">error</span> <span class="o">&amp;</span> <span class="n">SECCOMP_RET_DATA</span><span class="p">)),</span>
+		<span class="n">BPF_STMT</span><span class="p">(</span><span class="n">BPF_RET</span><span class="o">+</span><span class="n">BPF_K</span><span class="p">,</span> <span class="n">SECCOMP_RET_ALLOW</span><span class="p">),</span>
+	<span class="p">};</span>
+
+	<span class="k">struct</span> <span class="n">sock_fprog</span> <span class="n">prog</span> <span class="o">=</span> <span class="p">{</span>
+		<span class="p">.</span><span class="n">len</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">short</span><span class="p">)(</span><span class="k">sizeof</span><span class="p">(</span><span class="n">filter</span><span class="p">)</span><span class="o">/</span><span class="k">sizeof</span><span class="p">(</span><span class="n">filter</span><span class="p">[</span><span class="mi">0</span><span class="p">])),</span>
+		<span class="p">.</span><span class="n">filter</span> <span class="o">=</span> <span class="n">filter</span><span class="p">,</span>
+	<span class="p">};</span>
+
+	<span class="k">if</span> <span class="p">(</span><span class="n">prctl</span><span class="p">(</span><span class="n">PR_SET_NO_NEW_PRIVS</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span> <span class="p">{</span>
+		<span class="n">perror</span><span class="p">(</span><span class="s">&quot;prctl&quot;</span><span class="p">);</span>
+		<span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="cm">/*if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &amp;prog)) { */</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">syscall</span><span class="p">(</span><span class="n">__NR_seccomp</span><span class="p">,</span> <span class="n">SECCOMP_SET_MODE_FILTER</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">prog</span><span class="p">))</span> <span class="p">{</span>
+		<span class="n">perror</span><span class="p">(</span><span class="s">&quot;seccomp&quot;</span><span class="p">);</span>
+		<span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+	<span class="p">}</span>
+	<span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">fprintf</span><span class="p">(</span><span class="n">stderr</span><span class="p">,</span> <span class="s">&quot;Usage:\</span>
+<span class="s">%s &lt;syscall_nr&gt; &lt;arch&gt; &lt;errno&gt; &lt;prog&gt; [&lt;args&gt;]</span><span class="se">\n</span><span class="s">\</span>
+<span class="s">Hint for &lt;arch&gt;: AUDIT_ARCH_I386: 0x%X</span><span class="se">\n</span><span class="s">\</span>
+<span class="s">		 AUTIT_ARCH_X86_64: 0x%X</span><span class="se">\n</span><span class="s">\</span>
+<span class="s">&quot;</span><span class="p">,</span> <span class="n">argv</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">AUDIT_ARCH_I386</span><span class="p">,</span> <span class="n">AUDIT_ARCH_X86_64</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+	<span class="p">}</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Set seccomp mode to <code>SECCOMP_SET_MODE_FILTER</code>
+我们可以使用如下两种方式去设置，（1）prctl（2）seccomp</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="k">if</span> <span class="p">(</span><span class="n">install_filter</span><span class="p">(</span><span class="n">strtol</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">strtol</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+			   <span class="n">strtol</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">)))</span>
+	<span class="p">{</span>
+		<span class="n">perror</span><span class="p">(</span><span class="s">&quot;install_filter&quot;</span><span class="p">);</span>
+		<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+	<span class="p">}</span>
+
+	<span class="n">execv</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="o">&amp;</span><span class="n">argv</span><span class="p">[</span><span class="mi">4</span><span class="p">]);</span>
+	<span class="n">perror</span><span class="p">(</span><span class="s">&quot;execv&quot;</span><span class="p">);</span>
+	<span class="n">exit</span><span class="p">(</span><span class="n">EXIT_FAILURE</span><span class="p">);</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>禁用命令行中指定的系统调用，并返回执行的错误码</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -o dropper api.c
+$ ./dropper
+Usage:./dropper &lt;syscall_nr&gt; &lt;arch&gt; &lt;errno&gt; &lt;prog&gt; <span class="o">[</span>&lt;args&gt;<span class="o">]</span>
+Hint <span class="k">for</span> &lt;arch&gt;: AUDIT_ARCH_I386: 0x40000003
+		 AUTIT_ARCH_X86_64: 0xC000003E
+$  <span class="c1"># 我们使用89这个错误代码</span>
+$ errno 89
+EDESTADDRREQ <span class="m">89</span> Destination address required
+$  <span class="c1"># 我们禁用掉函数execve</span>
+$ scmp_sys_resolver -a <span class="k">$(</span>uname -m<span class="k">)</span> -t execve
+59
+$ ./dropper <span class="m">59</span> 0xC000003E <span class="m">89</span> /usr/bin/whoami
+execv: Destination address required
+$ <span class="c1"># 禁用系统调用write</span>
+$ scmp_sys_resolver -a <span class="k">$(</span>uname -m<span class="k">)</span> -t write
+1
+$ ./dropper <span class="m">1</span> 0xC000003E <span class="m">89</span> /usr/bin/whoami
+$ <span class="c1"># 禁用一个whoami不用的系统调用</span>
+$ scmp_sys_resolver -a <span class="k">$(</span>uname -m<span class="k">)</span> -t preadv
+295
+$ ./dropper <span class="m">295</span> 0xC000003E <span class="m">89</span> /usr/bin/whoami
+root
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="seccomp-example.html">02-使用简单的seccomp filters</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="libseccomp.html">04-Libseccomp用法</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/0x0916">@0x0916</a> | <a href="mailto:w@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>

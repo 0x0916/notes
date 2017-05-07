@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: 04-Libseccomp用法</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="libseccomp">
+      <h2><a href="./">C Code</a>: 04-Libseccomp用法</h2>
+	
+      	<div class="summary">
+		<p>在编写应用程序时，为了方便使用内核的<code>syscall filering mechanism</code>，我们可以使用<code>libseccomp</code>，它提供了一个平台无关的，简单易用的接口。</p>
+
+<ul>
+<li><a href="https://github.com/0x0916/notes/tree/master/code/c/libseccomp/seccomp_version">seccomp_version</a> 可以用来判断<code>libseccomp</code>库的版本。</li>
+<li><code>seccomp_init</code> 用来初始化seccomp filter的状态</li>
+<li><code>seccomp_reset</code> 用来重新初始化seccomp filter的状态</li>
+<li><code>seccomp_release</code>用来释放存在的seccomp filter context</li>
+<li><code>seccomp_load</code> Load the current seccomp filter into the kernel</li>
+<li><code>seccomp_rule_add</code>, <code>seccomp_rule_add_exact</code>, <code>seccomp_rule_add_array</code>, <code>seccomp_rule_add_exact_array</code> Add a seccomp filter rule</li>
+<li><code>seccomp_merge</code> Merge two seccomp filters</li>
+<li><code>seccomp_attr_set</code>, <code>seccomp_attr_get</code> - Manage the seccomp filter attributes</li>
+<li><code>seccomp_arch_add</code>, <code>seccomp_arch_remove</code>, <code>seccomp_arch_exist</code>, <code>seccomp_arch_native</code> - Manage seccomp filter architectures</li>
+<li><code>seccomp_syscall_resolve_name</code>,<code>seccomp_syscall_resolve_name_arch</code>, <code>seccomp_syscall_resolve_name_rewrite</code>,<code>seccomp_syscall_resolve_num_arch</code> - Resolve a syscall name, 利用这些函数，我们可以编写出一个简单的小工具，用来根据系统调用函数名称查询系统调用号<a href="https://github.com/0x0916/notes/tree/master/code/c/libseccomp/syscall_resolver">syscall</a>.</li>
+<li><code>seccomp_syscall_priority</code> Prioritize syscalls in the seccomp filter</li>
+<li><code>seccomp_export_bpf</code>, <code>seccomp_export_pfc</code> - Export the seccomp filter</li>
+</ul>
+
+      	</div>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;seccomp.h&gt;</span><span class="cp"></span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span>
+<span class="p">{</span>
+	<span class="kt">int</span> <span class="n">rc</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+	<span class="n">scmp_filter_ctx</span> <span class="n">ctx</span><span class="p">;</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;step 1: no seccomp filter added</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">ctx</span> <span class="o">=</span> <span class="n">seccomp_init</span><span class="p">(</span><span class="n">SCMP_ACT_KILL</span><span class="p">);</span>	<span class="c1">// default action: KILL</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">ctx</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+		<span class="k">goto</span> <span class="n">out</span><span class="p">;</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Initialize the seccomp filter state</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">seccomp_rule_add</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">SCMP_ACT_ALLOW</span><span class="p">,</span> <span class="n">SCMP_SYS</span><span class="p">(</span><span class="n">read</span><span class="p">),</span> <span class="mi">0</span><span class="p">);</span>
+	<span class="n">seccomp_rule_add</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">SCMP_ACT_ALLOW</span><span class="p">,</span> <span class="n">SCMP_SYS</span><span class="p">(</span><span class="n">write</span><span class="p">),</span> <span class="mi">0</span><span class="p">);</span>
+	<span class="n">seccomp_rule_add</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">SCMP_ACT_ALLOW</span><span class="p">,</span> <span class="n">SCMP_SYS</span><span class="p">(</span><span class="n">exit</span><span class="p">),</span> <span class="mi">0</span><span class="p">);</span>
+	<span class="n">seccomp_rule_add</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">SCMP_ACT_ALLOW</span><span class="p">,</span> <span class="n">SCMP_SYS</span><span class="p">(</span><span class="n">rt_sigreturn</span><span class="p">),</span> <span class="mi">0</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>setup basic whitelist</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">seccomp_rule_add</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">SCMP_ACT_ALLOW</span><span class="p">,</span> <span class="n">SCMP_SYS</span><span class="p">(</span><span class="n">dup2</span><span class="p">),</span> <span class="mi">2</span><span class="p">,</span>
+			<span class="n">SCMP_A0</span><span class="p">(</span><span class="n">SCMP_CMP_EQ</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+			<span class="n">SCMP_A1</span><span class="p">(</span><span class="n">SCMP_CMP_EQ</span><span class="p">,</span> <span class="mi">2</span><span class="p">));</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>setup our rule</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">rc</span> <span class="o">=</span> <span class="n">seccomp_load</span><span class="p">(</span><span class="n">ctx</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">rc</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+		<span class="k">goto</span> <span class="n">out</span><span class="p">;</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;step 2: only &#39;write&#39; &#39;read&#39;,&#39;exit&#39;, &#39;rt_sigreturn&#39; and dup2(1,2) syscalls are allowed</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>load the filter</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">dup2</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;step 3: stderr redirected to stdout</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>redirect stderr to stdout</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">dup2</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">23</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;step 4: !! YOU SHOULD NOT SEE ME !!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+<span class="nl">out</span><span class="p">:</span></pre></div>
+          </td>
+	  <td class="docs">
+            <p>Duplicate stderr to arbitrary fd</p>
+
+          </td>
+        </tr>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>	<span class="n">seccomp_release</span><span class="p">(</span><span class="n">ctx</span><span class="p">);</span>
+
+	<span class="k">return</span> <span class="o">-</span><span class="n">rc</span><span class="p">;</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="docs">
+            <p>Release the seccomp filter state</p>
+
+          </td>
+        </tr>
+        
+      </table>
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre>$ gcc -o seccomp libseccomp.c <span class="sb">`</span>pkg-config --cflags --libs libseccomp<span class="sb">`</span>
+$ ./seccomp
+step 1: no seccomp filter added
+step 2: only <span class="s1">&#39;write&#39;</span> <span class="s1">&#39;read&#39;</span>,<span class="s1">&#39;exit&#39;</span>, <span class="s1">&#39;rt_sigreturn&#39;</span> and dup2<span class="o">(</span>1,2<span class="o">)</span> syscalls are allowed
+step 3: stderr redirected to stdout
+Bad system call
+$ <span class="nb">echo</span> <span class="nv">$?</span>
+159
+$ <span class="c1">#  &lt;------ 128+31 ==&gt; SIGSYS</span>
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="seccomp-api.html">03-Linux系统调用seccomp</a>.
+      </p>
+      
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/0x0916">@0x0916</a> | <a href="mailto:w@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>
