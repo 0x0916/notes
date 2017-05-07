@@ -35,7 +35,7 @@ static int install_filter(int nr, int arch, int error)
 	// Set seccomp mode to `SECCOMP_SET_MODE_FILTER`
 	// 我们可以使用如下两种方式去设置，（1）prctl（2）seccomp
 
-	//if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog)) {
+	/*if (prctl(PR_SET_SECCOMP, SECCOMP_MODE_FILTER, &prog)) { */
 	if (syscall(__NR_seccomp, SECCOMP_SET_MODE_FILTER, 0, &prog)) {
 		perror("seccomp");
 		return 1;
