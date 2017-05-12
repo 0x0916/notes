@@ -1,3 +1,5 @@
 seccomp_version
 syscall_resolver
-
+seccomp_arch
+seccomp_export_bpf
+seccomp_export_pfc
