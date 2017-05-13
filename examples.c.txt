@@ -28,3 +28,4 @@ Seccomp Autodetect->01-检测系统是否支持seccomp特性
 Seccomp Example->02-使用简单的seccomp filters
 Seccomp API->03-Linux系统调用seccomp
 libseccomp->04-Libseccomp用法
+no new privs->NO_NEW_PRIVS总结
