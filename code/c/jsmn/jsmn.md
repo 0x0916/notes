@@ -273,13 +273,16 @@
 
 ## 示例2:
 
-对于我们已知的JSON数据结构，我们可以使用状态机进行解析。
+对于我们已知的JSON数据结构，如果简答，我们可以去解析，[例如][jsmn-simple]。
 
 ## 示例3:
-## 示例4:
+
+对于我们已知的JSON数据结构，我们可以使用[状态机进行解析][jsmn-parser]。
+
 
 [jsmn-internal]: https://github.com/0x0916/notes/tree/master/code/c/jsmn/jsnm-internal
 [jsmn-dump]: https://github.com/0x0916/notes/tree/master/code/c/jsmn/jsnm-dump
+[jsmn-simple]: https://github.com/0x0916/notes/tree/master/code/c/jsmn/jsnm-simple
 [jsmn-parser]: https://github.com/0x0916/notes/tree/master/code/c/jsmn/jsnm-parser
 
 
