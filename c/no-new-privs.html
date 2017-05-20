@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>C Code: NO_NEW_PRIVS总结</title>
+    <link rel=stylesheet href="site.css">
+  </head>
+  <body>
+    <div class="example" id="no-new-privs">
+      <h2><a href="./">C Code</a>: NO_NEW_PRIVS总结</h2>
+	
+      	<div class="summary">
+		<p>系统调用<code>execve</code>可以给与新进程增加权限，特别是新进程的父进程所没有的权限。
+最明显的例子就是运行的程序是设置了<code>setuid/setgid</code>或者<code>file capabilities</code>的程序。
+为了防止父进程或得这些特权，内核和用户代码就必须进行小心的处理，有很多中临时的办法解决这个问题。</p>
+
+<p>从Linux 3.5之后的内核中，添加了一个新的、通用的机制<code>no_new_privs</code>可以让进程安全的修改其执行环境。
+所有的进程都可以可以设置<code>no_new_privs</code>，一旦设置了，<code>fork</code>，<code>clone</code>，<code>execve</code>都会继承该设置，且
+不能被取消设置。</p>
+
+<p>设置了<code>no_new_privs</code>后，<code>execve</code>保证了进程不会获取未执行execve时没有的任何特权。例如：</p>
+
+<ul>
+<li><code>setuid</code>和<code>setgid</code>位将不会改变<code>uid</code>和<code>gid</code>。</li>
+<li><code>file capabilites</code>将不会被添加到<code>permitted</code>中。</li>
+</ul>
+
+<p>可以使用如下方式设置<code>no_new_privs</code>:</p>
+
+<pre><code class="language-c">prctl(PR_SET_NO_NEW_PRIVS 1 0,0,0)。
+</code></pre>
+
+<p>目前主要有以下两种场景使用了<code>no_new_privs</code>:</p>
+
+<ul>
+<li>seccomp filter mode 2</li>
+<li>程序自己使用，来减少非特权用户的攻击面。</li>
+</ul>
+
+      	</div>
+	
+      
+      <table>
+        
+        <tr>
+          <td class="code">
+            <div class="highlight"><pre><span class="cp">#include</span> <span class="cpf">&lt;sys/prctl.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;unistd.h&gt;</span><span class="cp"></span>
+<span class="cp">#include</span> <span class="cpf">&lt;errno.h&gt;</span><span class="cp"></span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">()</span>
+<span class="p">{</span>
+	<span class="kt">int</span> <span class="n">nnp</span> <span class="o">=</span> <span class="n">prctl</span><span class="p">(</span><span class="n">PR_GET_NO_NEW_PRIVS</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">nnp</span> <span class="o">==</span> <span class="o">-</span><span class="n">EINVAL</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;Failed!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+	<span class="p">}</span>
+	
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;nnp was %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">nnp</span><span class="p">);</span>
+	
+	<span class="k">if</span> <span class="p">(</span><span class="n">prctl</span><span class="p">(</span><span class="n">PR_SET_NO_NEW_PRIVS</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;Failed!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+	<span class="p">}</span>
+	
+	<span class="n">nnp</span> <span class="o">=</span> <span class="n">prctl</span><span class="p">(</span><span class="n">PR_GET_NO_NEW_PRIVS</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+	<span class="k">if</span> <span class="p">(</span><span class="n">nnp</span> <span class="o">==</span> <span class="o">-</span><span class="n">EINVAL</span><span class="p">)</span> <span class="p">{</span>
+		<span class="n">printf</span><span class="p">(</span><span class="s">&quot;Failed!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+		<span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+	<span class="p">}</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;nnp is %d</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">,</span> <span class="n">nnp</span><span class="p">);</span>
+
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;here goes...</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+	<span class="n">execlp</span><span class="p">(</span><span class="s">&quot;bash&quot;</span><span class="p">,</span> <span class="s">&quot;bash&quot;</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+	<span class="n">printf</span><span class="p">(</span><span class="s">&quot;Failed to exec bash</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+	<span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+
+</pre></div>
+          </td>
+	  <td class="">
+            
+          </td>
+        </tr>
+        
+      </table>
+      
+	<div class="pager">
+      
+      <p class="prev">
+        Prev: <a href="libseccomp.html">04-Libseccomp用法</a>.
+      </p>
+      
+      
+      <p class="next">
+        Next: <a href="jsmn.html">一个简单的JSON解析程序</a>.
+      </p>
+      
+	</div>
+      <p class="footer">
+	by <a href="https://github.com/0x0916">@0x0916</a> | <a href="mailto:w@laoqinren.net">联系我</a>
+      </p>
+    </div>
+  </body>
+</html>
