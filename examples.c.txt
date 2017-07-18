@@ -32,3 +32,4 @@ no new privs->NO_NEW_PRIVS总结
 jsmn->一个简单的JSON解析程序
 dump utmpx->显示utmpx格式的文件的内容
 backtrace->程序自我DEBUG方法
+pthread atfork->pthread_atfork和mutex共同使用的问题
