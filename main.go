@@ -81,9 +81,9 @@ func main() {
 		return nil
 	}
 	app.Action = func(context *cli.Context) error {
-		generateWebsite("examples.go.txt", "go")
-		generateWebsite("examples.c.txt", "c")
-		generateWebsite("blog.txt", "blog")
+		generateWebsite("go.index.md", "go")
+		generateWebsite("c.index.md", "c")
+		generateWebsite("blog.index.md", "blog")
 		return nil
 	}
 
