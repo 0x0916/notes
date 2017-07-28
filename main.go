@@ -83,6 +83,7 @@ func main() {
 	app.Action = func(context *cli.Context) error {
 		generateWebsite("examples.go.txt", "go")
 		generateWebsite("examples.c.txt", "c")
+		generateWebsite("blog.txt", "blog")
 		return nil
 	}
 
