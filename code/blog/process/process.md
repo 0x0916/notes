@@ -16,7 +16,7 @@ Also, we give the following definition for a process: a process is an abstract e
 
 Each process has a process ID(`PID`). a positive integer that uniquely identifies the process on the system.
 
-The Linux Kernel limits process IDs to being less than or equal to `32767`. Each time the limit of 32767 is reached, the kernel resets its process ID counter so that process IDs are assigned starting from low integer values. (Once it has reached 32767, the process ID counter is reset to 300, rather that 1).
+The Linux Kernel limits process IDs to being less than or equal to `32767`. Each time the limit of 32767 is reached, the kernel resets its process ID counter so that process IDs are assigned starting from low integer values. (Once it has reached 32767, the process ID counter is reset to 300(`RESERVED_PIDS`), rather that 1).
 
 The limit is adjustable via the value in the linux-specific `/proc/sys/kernel/pid_max`
 
